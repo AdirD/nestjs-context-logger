@@ -1,161 +1,133 @@
-// import { ContextLogger } from '@logger';
-// import { ContextStore } from './store/context-store';
+import { ContextLogger } from './context-logger';
+import { ContextStore } from './store/context-store';
 
-// jest.unmock( `${ process.cwd() }/src/context/context-logger.ts` );
+describe('ContextLogger', () => {
+  const spyLog = jest.fn();
+  const spyDebug = jest.fn();
+  const spyWarn = jest.fn();
+  const spyError = jest.fn();
+  const MODULE_NAME = 'TestModule';
+  const contextLogger = new ContextLogger(MODULE_NAME);
+  const CONTEXT = { requestId: '123', someContextField: 'someContextValue' };
 
-// describe( 'ContextLogger', () => {
-// 	const spyLog = jest.fn();
-// 	const spyDebug = jest.fn();
-// 	const spyWarn = jest.fn();
-// 	const spyError = jest.fn();
-// 	const MODULE_NAME = 'TestModule';
-// 	const contextLogger = new ContextLogger( MODULE_NAME );
-// 	const CONTEXT = { someContextField: 'someContextValue' };
+  jest.spyOn(ContextStore, 'getContext').mockReturnValue(CONTEXT);
+  const mockLogger = {
+    log: spyLog,
+    debug: spyDebug,
+    warn: spyWarn,
+    error: spyError,
+  };
 
-// 	// @ts-expect-error - no need for exact object
-// 	jest.spyOn( ContextStore, 'getContext' ).mockReturnValue( CONTEXT );
-// 	const mockLogger = {
-// 		log: spyLog,
-// 		debug: spyDebug,
-// 		warn: spyWarn,
-// 		error: spyError,
-// 	} as any;
-// 	ContextLogger.init( mockLogger );
+  ContextLogger.init(mockLogger as any);
 
-// 	afterEach( () => {
-// 		jest.clearAllMocks();
-// 	} );
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
 
-// 	describe( 'log method', () => {
-// 		it( 'should call internal logger with "log" level', () => {
-// 			const message = 'Test message';
-// 			const bindings = { someBinding: 'value' };
+  describe('log, debug, warn methods', () => {
+    it.each(['log', 'debug', 'warn'])('should call internal logger with "%s" level', (method) => {
+      const message = 'Test message';
+      const bindings = { someBinding: 'value' };
 
-// 			contextLogger.log( message, bindings );
+      contextLogger[method](message, bindings);
 
-// 			expect( mockLogger.log ).toHaveBeenCalledWith(
-// 				{ ...bindings, ...CONTEXT },
-// 				message,
-// 				MODULE_NAME
-// 			);
-// 		} );
-// 	} );
+      expect(mockLogger[method]).toHaveBeenCalledWith(
+        { ...bindings, ...CONTEXT },
+        message,
+        MODULE_NAME
+      );
+    });
 
-// 	describe( 'log, debug, warn methods', () => {
-// 		it.each( [ 'log', 'debug', 'warn' ] )( 'should call internal logger with "%s" level', ( method ) => {
-// 			const message = 'Test message';
-// 			const bindings = { someBinding: 'value' };
+    it('should call internal logger with empty bindings if not provided', () => {
+      const message = 'Test message';
 
-// 			contextLogger[ method ]( message, bindings );
+      contextLogger.log(message);
 
-// 			expect( mockLogger[ method ] ).toHaveBeenCalledWith( { ...bindings, ...CONTEXT }, message, MODULE_NAME );
-// 		} );
+      expect(mockLogger.log).toHaveBeenCalledWith(CONTEXT, message, MODULE_NAME);
+    });
+  });
 
-// 		it( 'should call internal logger with empty bindings if not provided', () => {
-// 			const message = 'Test message';
+  describe('error method', () => {
+    it('should call internal logger with error message only', () => {
+      const message = 'Error message';
 
-// 			contextLogger.log( message );
+      contextLogger.error(message);
 
-// 			expect( mockLogger.log ).toHaveBeenCalledWith( CONTEXT, message, MODULE_NAME );
-// 		} );
-// 	} );
+      expect(mockLogger.error).toHaveBeenCalledWith(CONTEXT, message, MODULE_NAME);
+    });
 
-// 	describe( 'error method', () => {
-// 		it( 'should call internal logger with error message only', () => {
-// 			const message = 'Error message';
+    it('should call internal logger with error message and Error object', () => {
+      const message = 'Error message';
+      const error = new Error('Test error');
 
-// 			contextLogger.error( message );
+      contextLogger.error(message, error);
 
-// 			expect( mockLogger.error ).toHaveBeenCalledWith( CONTEXT, message, MODULE_NAME );
-// 		} );
+      expect(mockLogger.error).toHaveBeenCalledWith({ err: error, ...CONTEXT }, message, MODULE_NAME);
+    });
 
-// 		it( 'should call internal logger with error message and Error object', () => {
-// 			const message = 'Error message';
-// 			const error = new Error( 'Test error' );
+    it('should call internal logger with error message and bindings', () => {
+      const message = 'Error message';
+      const bindings = { someBinding: 'value' };
 
-// 			contextLogger.error( message, error );
+      contextLogger.error(message, bindings);
 
-// 			expect( mockLogger.error ).toHaveBeenCalledWith( { err: error, ...CONTEXT }, message, MODULE_NAME );
-// 		} );
+      expect(mockLogger.error).toHaveBeenCalledWith({ ...bindings, ...CONTEXT }, message, MODULE_NAME);
+    });
 
-// 		it( 'should call internal logger with error message and bindings', () => {
-// 			const message = 'Error message';
-// 			const bindings = { someBinding: 'value' };
+    it('should call internal logger with error message, Error object, and bindings', () => {
+      const message = 'Error message';
+      const error = new Error('Test error');
+      const bindings = { someBinding: 'value' };
 
-// 			contextLogger.error( message, bindings );
+      contextLogger.error(message, error, bindings);
 
-// 			expect( mockLogger.error ).toHaveBeenCalledWith( { ...bindings, ...CONTEXT }, message, MODULE_NAME );
-// 		} );
+      expect(mockLogger.error).toHaveBeenCalledWith(
+        { err: error, ...bindings, ...CONTEXT },
+        message,
+        MODULE_NAME
+      );
+    });
+  });
 
-// 		it( 'should call internal logger with error message, Error object, and bindings', () => {
-// 			const message = 'Error message';
-// 			const error = new Error( 'Test error' );
-// 			const bindings = { someBinding: 'value' };
+  describe('static methods', () => {
+    it('should initialize the internal logger only once', () => {
+      const newLogger = { log: jest.fn() };
+      ContextLogger.init(newLogger as any);
 
-// 			contextLogger.error( message, error, bindings );
+      contextLogger.log('Test message');
 
-// 			expect( mockLogger.error ).toHaveBeenCalledWith( { err: error, ...bindings, ...CONTEXT }, message, MODULE_NAME );
-// 		} );
+      expect(mockLogger.log).toHaveBeenCalled();
+      expect(newLogger.log).not.toHaveBeenCalled();
+    });
 
-// 		it( 'should call internal logger when both error and bindings are undefined', () => {
-// 			const message = 'Error message';
+    it('should have different module names but still reach the same internal logger', () => {
+      const MODULE_NAME_1 = 'TestModule1';
+      const MODULE_NAME_2 = 'TestModule2';
 
-// 			contextLogger.error( message, undefined, undefined );
+      const contextLogger1 = new ContextLogger(MODULE_NAME_1);
+      const contextLogger2 = new ContextLogger(MODULE_NAME_2);
 
-// 			expect( mockLogger.error ).toHaveBeenCalledWith( CONTEXT, message, MODULE_NAME );
-// 		} );
+      contextLogger1.log('test message 1');
+      contextLogger2.log('test message 2');
 
-// 		it( 'should call internal logger with message when error and bindings are null', () => {
-// 			const message = 'Error message';
+      expect(spyLog).toHaveBeenCalledWith(CONTEXT, 'test message 1', MODULE_NAME_1);
+      expect(spyLog).toHaveBeenCalledWith(CONTEXT, 'test message 2', MODULE_NAME_2);
+    });
 
-// 			contextLogger.error( message, null, null );
+    it('should get current context', () => {
+      const context = ContextLogger.getContext();
 
-// 			expect( mockLogger.error ).toHaveBeenCalledWith( CONTEXT, message, MODULE_NAME );
-// 		} );
+      expect(context).toEqual(CONTEXT);
+      expect(ContextStore.getContext).toHaveBeenCalled();
+    });
 
-// 		it( 'should handle unexpected types gracefully for errorOrBindings parameter', () => {
-// 			const message = 'Error message';
-
-// 			// @ts-expect-error - simulating unexpected type to see if the function handles it correctly
-// 			contextLogger.error( message, 123 );
-
-// 			expect( mockLogger.error ).toHaveBeenCalledWith( CONTEXT, message, MODULE_NAME );
-// 		} );
-// 	} );
-
-// 	describe( 'init method', () => {
-// 		it( 'should initialize the internal logger only once', () => {
-// 			const newLogger = { log: jest.fn() } as any;
-// 			ContextLogger.init( newLogger );
-
-// 			contextLogger.log( 'Test message' );
-
-// 			expect( mockLogger.log ).toHaveBeenCalled();
-// 			expect( newLogger.log ).not.toHaveBeenCalled();
-// 		} );
-
-// 		it( 'should have different module names but still reach the same internal logger', () => {
-// 			const MODULE_NAME_1 = 'TestModule1';
-// 			const MODULE_NAME_2 = 'TestModule2';
-
-// 			const contextLogger1 = new ContextLogger( MODULE_NAME_1 );
-// 			const contextLogger2 = new ContextLogger( MODULE_NAME_2 );
-
-// 			// Call the log method on both instances
-// 			contextLogger1.log( 'test message 1' );
-// 			contextLogger2.log( 'test message 2' );
-
-// 			// Check that the internal logger was called with the correct module names
-// 			expect( spyLog ).toHaveBeenCalledWith(
-// 				expect.objectContaining( { someContextField: 'someContextValue' } ),
-// 				'test message 1',
-// 				MODULE_NAME_1
-// 			);
-// 			expect( spyLog ).toHaveBeenCalledWith(
-// 				expect.objectContaining( { someContextField: 'someContextValue' } ),
-// 				'test message 2',
-// 				MODULE_NAME_2
-// 			);
-// 		} );
-// 	} );
-// } );
+    it('should update the context', () => {
+      const newContext = { key: 'value' };
+      const spyUpdateContext = jest.spyOn(ContextStore, 'updateContext');
+  
+      ContextLogger.updateContext(newContext);
+  
+      expect(spyUpdateContext).toHaveBeenCalledWith(newContext);
+    });
+  });
+});

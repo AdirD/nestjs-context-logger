@@ -16,24 +16,32 @@ export class ContextLogger {
     }
   }
 
-  static extendContext(context: Record<string, any>): void {
+  static updateContext(context: Record<string, any>): void {
     ContextStore.updateContext(context);
   }
 
-  static getCurrentContext(): Record<string, any> {
+  static getContext(): Record<string, any> {
     return ContextStore.getContext();
   }
 
   log(message: string, bindings?: Bindings) {
     this.callInternalLogger('log', message, (bindings ?? {}));
   }
-
+  
   debug(message: string, bindings?: Bindings) {
     this.callInternalLogger('debug', message, (bindings ?? {}));
   }
-
+  
+  verbose(message: string, bindings?: Bindings) {
+    this.callInternalLogger('verbose', message, (bindings ?? {}));
+  }
+  
   warn(message: string, bindings?: Bindings) {
     this.callInternalLogger('warn', message, (bindings ?? {}));
+  }
+  
+  fatal(message: string, bindings?: Bindings) {
+    this.callInternalLogger('fatal', message, (bindings ?? {}));
   }
 
   error(message: string): void;

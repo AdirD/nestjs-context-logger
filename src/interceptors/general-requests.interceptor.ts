@@ -4,18 +4,18 @@ import {
   ExecutionContext,
   CallHandler,
   Inject,
-} from "@nestjs/common";
-import { Observable } from "rxjs";
-import { tap } from "rxjs/operators";
-import { ContextLogger } from "../context-logger";
-import { ContextLoggerFactoryOptions } from "../interfaces/context-logger.interface";
+} from '@nestjs/common';
+import { Observable } from 'rxjs';
+import { tap } from 'rxjs/operators';
+import { ContextLogger } from '../context-logger';
+import { ContextLoggerFactoryOptions } from '../interfaces/context-logger.interface';
 
 @Injectable()
 export class GeneralRequestsInterceptor implements NestInterceptor {
   private readonly logger = new ContextLogger(GeneralRequestsInterceptor.name);
 
   constructor(
-    @Inject("CONTEXT_LOGGER_OPTIONS")
+    @Inject('CONTEXT_LOGGER_OPTIONS')
     private readonly options: ContextLoggerFactoryOptions
   ) {}
 
@@ -28,7 +28,6 @@ export class GeneralRequestsInterceptor implements NestInterceptor {
 
     // Base context
     let requestContext = {
-      startTime,
       requestMethod: request.method,
       requestUrl: request.url,
     };
@@ -42,17 +41,15 @@ export class GeneralRequestsInterceptor implements NestInterceptor {
       };
     }
 
-    ContextLogger.extendContext(requestContext);
+    ContextLogger.updateContext(requestContext);
 
     return next.handle().pipe(
       tap(() => {
         const endTime = new Date();
-        ContextLogger.extendContext({
+        this.logger.debug('Request completed', {
           endTime,
           durationSec: (endTime.getTime() - startTime.getTime()) / 1000,
         });
-
-        this.logger.debug("[request] completed");
       })
     );
   }

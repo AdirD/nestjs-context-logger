@@ -3,18 +3,18 @@ import {
   Module,
   MiddlewareConsumer,
   NestModule,
-} from "@nestjs/common";
-import { APP_INTERCEPTOR } from "@nestjs/core";
-import { LoggerModule } from "nestjs-pino";
-import { GeneralRequestsInterceptor } from "./interceptors/general-requests.interceptor";
-import { ContextMiddleware } from "./middlewares/context.middleware";
-import { ContextLoggerFactoryOptions } from "./interfaces/context-logger.interface";
-import pino from "pino";
+} from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { LoggerModule } from 'nestjs-pino';
+import { GeneralRequestsInterceptor } from './interceptors/general-requests.interceptor';
+import { ContextMiddleware } from './middlewares/context.middleware';
+import { ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
+import pino from 'pino';
 
 @Module({})
 export class ContextLoggerModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(ContextMiddleware).forRoutes("*");
+    consumer.apply(ContextMiddleware).forRoutes('*');
   }
 
   static forRootAsync(options: {
@@ -33,11 +33,11 @@ export class ContextLoggerModule implements NestModule {
             const factoryOptions = await options.useFactory(...args);
 
             return {
-              renameContext: "service",
+              renameContext: 'service',
               pinoHttp: {
                 autoLogging: false,
                 logger: pino({
-                  level: factoryOptions.logLevel || "info",
+                  level: factoryOptions.logLevel || 'info',
                   formatters: {
                     level: (label) => ({ level: label }),
                   },
@@ -51,7 +51,7 @@ export class ContextLoggerModule implements NestModule {
       ],
       providers: [
         {
-          provide: "CONTEXT_LOGGER_OPTIONS",
+          provide: 'CONTEXT_LOGGER_OPTIONS',
           useFactory: options.useFactory,
           inject: options.inject || [],
         },
