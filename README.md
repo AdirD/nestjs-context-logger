@@ -43,7 +43,6 @@ logger.error('Failed to update user subscription');
 //   "level":"error",
 //   "message":"Failed to update user subscription",
 //   "correlationId":"d4c3f2b1-a5e6-4c3d-8b9a-1c2d3e4f5g6h",
-//   "requestId":"req_123",
 //   "userId":"user_456",
 //   "subscriptionTier":"premium",
 //   "service":"SubscriptionService",

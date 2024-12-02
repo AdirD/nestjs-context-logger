@@ -35,10 +35,7 @@ describe('ContextLoggerModule', () => {
       const contextLoggerModule = module.get(ContextLoggerModule);
       contextLoggerModule.configure(consumer);
 
-      expect(consumer.apply).toHaveBeenCalledWith(
-        InitContextMiddleware,
-        RequestInterceptor
-      );
+      expect(consumer.apply).toHaveBeenCalledWith(InitContextMiddleware);
       expect(consumer.exclude).toHaveBeenCalledWith('/health', '/metrics');
       expect(consumer.forRoutes).toHaveBeenCalledWith('*');
     });
@@ -57,10 +54,7 @@ describe('ContextLoggerModule', () => {
       const contextLoggerModule = module.get(ContextLoggerModule);
       contextLoggerModule.configure(consumer);
 
-      expect(consumer.apply).toHaveBeenCalledWith(
-        InitContextMiddleware,
-        RequestInterceptor
-      );
+      expect(consumer.apply).toHaveBeenCalledWith(InitContextMiddleware,);
       expect(consumer.exclude).toHaveBeenCalledWith();
       expect(consumer.forRoutes).toHaveBeenCalledWith('*');
     });

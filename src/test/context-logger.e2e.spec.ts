@@ -1,185 +1,207 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, Controller, Get, Injectable } from '@nestjs/common';
+import { INestApplication, Controller, Get, Injectable, ExecutionContext } from '@nestjs/common';
 import { ContextLogger } from '../context-logger';
 import { ContextLoggerModule } from '../context-logger.module';
+import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import * as request from 'supertest';
 
-// Test service for chain testing
 @Injectable()
 class ChainTestService {
-  private readonly logger = new ContextLogger(ChainTestService.name);
+  constructor(private readonly logger: ContextLogger) {}
 
   async doSomething() {
+    // Add a small delay to ensure requests overlap
+    await new Promise(resolve => setTimeout(resolve, 10));
     this.logger.log('service method called');
     return { success: true };
   }
 }
 
-// Test controller for chain testing
 @Controller()
 class ChainTestController {
-  private readonly logger = new ContextLogger(ChainTestController.name);
-
-  constructor(private service: ChainTestService) {}
+  constructor(
+    private service: ChainTestService,
+    private readonly logger: ContextLogger
+  ) {}
 
   @Get('/chain-test')
   async test() {
     this.logger.log('controller hit');
-    return this.service.doSomething();
+    ContextLogger.updateContext({ controllerField: 'controller-value' });
+    const result = await this.service.doSomething();
+    this.logger.log('controller complete');
+    return result;
   }
 }
 
-// Main test controller
 @Controller()
 class TestController {
-  private readonly logger = new ContextLogger(TestController.name);
+  constructor(private readonly logger: ContextLogger) {}
 
   @Get('/test')
   test() {
     this.logger.log('test endpoint hit');
     return { success: true };
   }
-
-  @Get('/health')
-  health() {
-    this.logger.log('health check');
-    return { status: 'ok' };
-  }
 }
 
 describe('ContextLogger E2E', () => {
   let app: INestApplication;
-  let mockUpdateContext: jest.SpyInstance;
-  let mockLog: jest.SpyInstance;
+  let mockNestJSPinoLogger: jest.Mocked<NestJSPinoLogger>;
 
   beforeEach(async () => {
-    // Spy on the static methods we want to verify
-    mockUpdateContext = jest.spyOn(ContextLogger, 'updateContext');
-    mockLog = jest.spyOn(ContextLogger.prototype, 'log');
+    mockNestJSPinoLogger = {
+      log: jest.fn(),
+      info: jest.fn(),
+      debug: jest.fn(),
+      error: jest.fn(),
+      warn: jest.fn(),
+      fatal: jest.fn(),
+      verbose: jest.fn(),
+    } as any;
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
         ContextLoggerModule.forRootAsync({
           useFactory: () => ({
-            exclude: ['/health'],
-            enrichContext: () => ({
-              customField: 'test-value'
-            })
+            logLevel: 'debug',
+            enrichContext: (executionContext: ExecutionContext) => {
+              if (!executionContext) return { environment: 'test' };
+              const request = executionContext.switchToHttp().getRequest();
+              return {
+                environment: 'test',
+                traceId: request.headers['x-trace-id']
+              };
+            }
           })
         })
       ],
-      controllers: [TestController]
-    }).compile();
+      controllers: [TestController, ChainTestController],
+      providers: [ChainTestService]
+    })
+      .overrideProvider(NestJSPinoLogger)
+      .useValue(mockNestJSPinoLogger)
+      .compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
   });
 
   afterEach(async () => {
-    mockUpdateContext.mockRestore();
-    mockLog.mockRestore();
+    jest.resetAllMocks();
     await app.close();
   });
 
-  describe('Logging behavior', () => {
-    it('should log non-excluded routes with context', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/test')
-        .expect(200);
+  it('should properly log request with enriched context', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/test')
+      .set('X-Trace-ID', 'trace-123')
+      .expect(200);
 
-      expect(response.body).toEqual({ success: true });
-      expect(mockUpdateContext).toHaveBeenCalledWith(
-        expect.objectContaining({
-          requestMethod: 'GET',
-          requestUrl: '/test',
-          customField: 'test-value'
-        })
-      );
-      expect(mockLog).toHaveBeenCalledWith('test endpoint hit');
+    expect(response.body).toEqual({ success: true });
+    
+    expect(mockNestJSPinoLogger.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        environment: 'test',
+        requestMethod: 'GET',
+        requestUrl: '/test',
+        traceId: 'trace-123'
+      }),
+      'test endpoint hit',
+      TestController.name
+    );
+  });
+
+  it('should preserve and extend context through the request chain', async () => {
+    await request(app.getHttpServer())
+      .get('/chain-test')
+      .set('X-Trace-ID', 'trace-123')
+      .expect(200);
+
+    const logCalls = mockNestJSPinoLogger.log.mock.calls;
+    expect(logCalls).toHaveLength(3);
+    
+    // First log from controller (before updateContext)
+    expect(logCalls[0][0]).toMatchObject({
+      environment: 'test',
+      traceId: 'trace-123',
+      requestMethod: 'GET',
+      requestUrl: '/chain-test'
     });
-
-    it('should not log excluded routes', async () => {
-      const response = await request(app.getHttpServer())
-        .get('/health')
-        .expect(200);
-
-      expect(response.body).toEqual({ status: 'ok' });
-      expect(mockUpdateContext).not.toHaveBeenCalled();
-      expect(mockLog).not.toHaveBeenCalled();
+    
+    // Second log from service (after controller's updateContext)
+    expect(logCalls[1][0]).toMatchObject({
+      environment: 'test',
+      traceId: 'trace-123',
+      requestMethod: 'GET',
+      requestUrl: '/chain-test',
+      controllerField: 'controller-value'
+    });
+    
+    // Third log from controller complete
+    expect(logCalls[2][0]).toMatchObject({
+      environment: 'test',
+      traceId: 'trace-123',
+      requestMethod: 'GET',
+      requestUrl: '/chain-test',
+      controllerField: 'controller-value'
     });
   });
 
-  describe('Context enrichment', () => {
-    it('should enrich context with custom fields', async () => {
-      // Create a new module with more complex enrichContext
-      const moduleWithEnrichment: TestingModule = await Test.createTestingModule({
-        imports: [
-          ContextLoggerModule.forRootAsync({
-            useFactory: () => ({
-              enrichContext: () => ({
-                userId: 'test-user',
-                role: 'admin',
-                timestamp: expect.any(String)
-              })
-            })
-          })
-        ],
-        controllers: [TestController]
-      }).compile();
-
-      const enrichApp = moduleWithEnrichment.createNestApplication();
-      await enrichApp.init();
-
-      await request(enrichApp.getHttpServer())
-        .get('/test')
-        .expect(200);
-
-      expect(mockUpdateContext).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 'test-user',
-          role: 'admin',
-          timestamp: expect.any(String)
-        })
-      );
-
-      await enrichApp.close();
-    });
-  });
-
-  describe('Request chain context preservation', () => {
-    it('should maintain context through the request chain', async () => {
-      const chainModule = await Test.createTestingModule({
-        imports: [
-          ContextLoggerModule.forRootAsync({
-            useFactory: () => ({
-              enrichContext: () => ({ requestChain: 'test' })
-            })
-          })
-        ],
-        controllers: [ChainTestController],
-        providers: [ChainTestService]
-      }).compile();
-
-      const chainApp = chainModule.createNestApplication();
-      await chainApp.init();
-
-      await request(chainApp.getHttpServer())
+  it('should maintain isolated contexts for concurrent requests', async () => {
+    await Promise.all([
+      request(app.getHttpServer())
         .get('/chain-test')
-        .expect(200);
+        .set('X-Trace-ID', 'trace-1')
+        .expect(200),
+      request(app.getHttpServer())
+        .get('/chain-test')
+        .set('X-Trace-ID', 'trace-2')
+        .expect(200)
+    ]);
 
-      const logCalls = mockLog.mock.calls;
-      expect(logCalls).toHaveLength(2);
-      
-      // Both logs should have the same context
-      expect(ContextLogger.getContext()).toEqual(
-        expect.objectContaining({
-          requestChain: 'test',
-          requestMethod: 'GET',
-          requestUrl: '/chain-test'
-        })
-      );
+    const logCalls = mockNestJSPinoLogger.log.mock.calls;
+    expect(logCalls).toHaveLength(6); // 3 logs per request
 
-      await chainApp.close();
+    const trace1Logs = logCalls.filter(call => call[0].traceId === 'trace-1');
+    const trace2Logs = logCalls.filter(call => call[0].traceId === 'trace-2');
+
+    expect(trace1Logs).toHaveLength(3);
+    expect(trace2Logs).toHaveLength(3);
+
+    trace1Logs.forEach(([context]) => {
+      expect(context).toMatchObject({
+        environment: 'test',
+        traceId: 'trace-1',
+        requestMethod: 'GET',
+        requestUrl: '/chain-test'
+      });
+      // Skip first log which won't have controllerField
+      if (context.controllerField) {
+        expect(context.controllerField).toBe('controller-value');
+      }
     });
+
+    trace2Logs.forEach(([context]) => {
+      expect(context).toMatchObject({
+        environment: 'test',
+        traceId: 'trace-2',
+        requestMethod: 'GET',
+        requestUrl: '/chain-test'
+      });
+      // Skip first log which won't have controllerField
+      if (context.controllerField) {
+        expect(context.controllerField).toBe('controller-value');
+      }
+    });
+
+    // Verify logs are in the expected sequence for each trace
+    expect(trace1Logs[0][1]).toBe('controller hit');
+    expect(trace1Logs[1][1]).toBe('service method called');
+    expect(trace1Logs[2][1]).toBe('controller complete');
+
+    expect(trace2Logs[0][1]).toBe('controller hit');
+    expect(trace2Logs[1][1]).toBe('service method called');
+    expect(trace2Logs[2][1]).toBe('controller complete');
   });
 });

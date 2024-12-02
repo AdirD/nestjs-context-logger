@@ -1,16 +1,16 @@
 import { Logger as NestLogger } from '@nestjs/common';
-import { Logger as PinoLogger } from 'nestjs-pino';
+import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { ContextStore } from './store/context-store';
 
 type Bindings = Record<string, any>;
 
 export class ContextLogger {
-  private static internalLogger: PinoLogger;
+  private static internalLogger: NestJSPinoLogger;
   private readonly fallbackLogger = new NestLogger();
 
   constructor(private moduleName: string) {}
 
-  static init(logger: PinoLogger): void {
+  static init(logger: NestJSPinoLogger): void {
     if (!ContextLogger.internalLogger) {
       ContextLogger.internalLogger = logger;
     }

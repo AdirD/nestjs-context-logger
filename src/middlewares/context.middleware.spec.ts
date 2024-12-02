@@ -37,7 +37,6 @@ describe('InitContextMiddleware', () => {
       expect.any(Function),
       {
         correlationId: 'mocked-uuid',
-        requestId: 'request-id'
       }
     );
   });

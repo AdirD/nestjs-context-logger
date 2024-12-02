@@ -4,6 +4,8 @@ import { RequestInterceptor } from './request.interceptor';
 import { ContextLogger } from '../context-logger';
 import { ContextLoggerFactoryOptions } from '../interfaces/context-logger.interface';
 
+jest.mock('../context-logger');
+
 describe('RequestInterceptor', () => {
   let interceptor: RequestInterceptor;
   let mockContext: jest.Mocked<ExecutionContext>;
@@ -12,6 +14,9 @@ describe('RequestInterceptor', () => {
   let mockLogger: jest.Mocked<ContextLogger>;
 
   beforeEach(() => {
+    // Reset all mocks before each test
+    jest.resetAllMocks();
+    
     mockRequest = {
       method: 'GET',
       url: '/test',
@@ -34,7 +39,8 @@ describe('RequestInterceptor', () => {
       log: jest.fn(),
     } as any;
 
-    jest.spyOn(ContextLogger, 'updateContext');
+    // Mock the static updateContext method
+    (ContextLogger.updateContext as jest.Mock) = jest.fn();
 
     const options: ContextLoggerFactoryOptions = {
       exclude: ['/health'],

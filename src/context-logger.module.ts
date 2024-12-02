@@ -5,24 +5,30 @@ import {
   NestModule,
   Inject,
 } from '@nestjs/common';
-import { LoggerModule } from 'nestjs-pino';
+import { LoggerModule, Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { RequestInterceptor } from './interceptors/request.interceptor';
 import { InitContextMiddleware } from './middlewares/context.middleware';
 import { ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
+import { ContextLogger } from './context-logger';
 import pino from 'pino';
 import { APP_INTERCEPTOR } from '@nestjs/core';
-
 
 @Module({})
 export class ContextLoggerModule implements NestModule {
   constructor(
     @Inject('CONTEXT_LOGGER_OPTIONS')
-    private readonly options: ContextLoggerFactoryOptions
+    private readonly options: ContextLoggerFactoryOptions,
+    private readonly nestJSPinoLogger: NestJSPinoLogger
+
   ) {}
+
+  onModuleInit() {
+    ContextLogger.init(this.nestJSPinoLogger);
+  }
 
   configure(consumer: MiddlewareConsumer) {
     const excludePatterns = this.options.exclude || [];
-    
+
     consumer
       .apply(InitContextMiddleware)
       .exclude(...excludePatterns)
@@ -71,8 +77,10 @@ export class ContextLoggerModule implements NestModule {
         {
           provide: APP_INTERCEPTOR,
           useClass: RequestInterceptor,
-        }
+        },
+        ContextLogger,
       ],
+      exports: [ContextLogger],
       global: true,
     };
   }

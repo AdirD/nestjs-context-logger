@@ -8,7 +8,7 @@ describe('ContextLogger', () => {
   const spyError = jest.fn();
   const MODULE_NAME = 'TestModule';
   const contextLogger = new ContextLogger(MODULE_NAME);
-  const CONTEXT = { requestId: '123', someContextField: 'someContextValue' };
+  const CONTEXT = { someContextField: 'someContextValue' };
 
   jest.spyOn(ContextStore, 'getContext').mockReturnValue(CONTEXT);
   const mockLogger = {
