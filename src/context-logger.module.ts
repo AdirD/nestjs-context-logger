@@ -43,7 +43,7 @@ export class ContextLoggerModule implements NestModule {
                   },
                 }),
               },
-              exclude: factoryOptions.debugEndpoints || [],
+              exclude: factoryOptions.exclude || [],
             };
           },
           inject: options.inject || [],
