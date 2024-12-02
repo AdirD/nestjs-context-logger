@@ -2,19 +2,20 @@
 
 🌟 Request-scoped context logging for NestJS powered by [nestjs-pino](https://github.com/iamolegga/nestjs-pino) with **AUTOMATIC CONTEXT INJECTION IN EVERY LOG** 🌟
 
-> 🔍 Ever tried debugging a production issue with logs like `"Error updating user"` and no context about which user, service, or request caused it? This logger is your solution.
+> 🔍 Ever tried debugging a production issue with logs like `"Error updating user"` but no context about which user, service, or request caused it? This logger is your solution.
 
-Built with:
-- 🚀 [nestjs-pino](https://github.com/iamolegga/nestjs-pino) - Platform agnostic logger for NestJS
-- ⚡ [Pino](https://github.com/pinojs/pino) - Ultra-fast Node.js logger
-- 🔄 [AsyncLocalStorage](https://nodejs.org/api/async_context.html#class-asynclocalstorage) - Node.js context propagation
-
-A zero-overhead, request scoped, contextual logging solution for NestJS applications that automatically enriches your logs with request context, correlation IDs, and custom metadata. Designed for modern microservices architectures.
+[nestjs-context-logger](https://github.com/AdirD/nestjs-context-logger) — Is a request scoped contextual logging solution for NestJS applications that automatically enriches your logs with request context, correlation IDs, and custom metadata. Designed for NestJS architecture with zero-overhead.
 
 [![NPM Version](https://img.shields.io/npm/v/nestjs-context-logger)](https://www.npmjs.com/package/nestjs-context-logger)
 [![License](https://img.shields.io/npm/l/nestjs-context-logger)](https://github.com/AdirD/nestjs-context-logger/blob/main/LICENSE)
 [![Downloads](https://img.shields.io/npm/dm/nestjs-context-logger)](https://www.npmjs.com/package/nestjs-context-logger)
-[![Medium Article](https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium)](https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008)
+
+
+## Built with:
+- 🚀 [nestjs-pino](https://github.com/iamolegga/nestjs-pino) - Platform agnostic logger for NestJS
+- ⚡ [Pino](https://github.com/pinojs/pino) - Ultra-fast Node.js logger
+- 🔄 [AsyncLocalStorage](https://nodejs.org/api/async_context.html#class-asynclocalstorage) - Node.js context propagation
+
 
 ## Table of Contents
 - [The Problem](#the-problem)
@@ -54,13 +55,15 @@ logger.error('Failed to update user subscription');
 ```
 
 ## Why nestjs-context-logger?
-
+In depth 
+[![Medium Article](https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium)](https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008)
 - 🎯 **Zero Code Changes Required**: Keep using the familiar NestJS logger interface
 - ⚡ **High Performance**: Built on Pino, one of the fastest loggers in the Node.js ecosystem
 - 🔄 **Automatic Request Tracking**: Every log entry automatically includes request context
 - 📊 **Default Context**: Enriches each request with `correlationId` and `duration`
 - 🔍 **Debug Production Issues Faster**: Full context in every log message
 - 🚀 **Platform agnostic**: works with `Express` and `Fastify`
+
 
 ## Installation
 
