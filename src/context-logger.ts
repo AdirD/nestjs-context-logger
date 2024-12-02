@@ -27,7 +27,11 @@ export class ContextLogger {
   log(message: string, bindings?: Bindings) {
     this.callInternalLogger('log', message, (bindings ?? {}));
   }
-  
+
+  info(message: string, bindings?: Bindings) {
+    this.callInternalLogger('info', message, (bindings ?? {}));
+  }
+
   debug(message: string, bindings?: Bindings) {
     this.callInternalLogger('debug', message, (bindings ?? {}));
   }
