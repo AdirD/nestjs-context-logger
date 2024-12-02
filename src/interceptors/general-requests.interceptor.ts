@@ -27,28 +27,26 @@ export class GeneralRequestsInterceptor implements NestInterceptor {
     const startTime = new Date();
 
     // Base context
-    let requestContext = {
+    let enrichContext = {
       requestMethod: request.method,
       requestUrl: request.url,
     };
 
-    // Get custom context from user's requestContext if provided
-    if (this.options.requestContext) {
-      const customContext = await this.options.requestContext(context);
-      requestContext = {
-        ...requestContext,
+    // Get custom context from user's enrichContext if provided
+    if (this.options.enrichContext) {
+      const customContext = await this.options.enrichContext(context);
+      enrichContext = {
+        ...enrichContext,
         ...customContext,
       };
     }
 
-    ContextLogger.updateContext(requestContext);
+    ContextLogger.updateContext(enrichContext);
 
     return next.handle().pipe(
       tap(() => {
-        const endTime = new Date();
         this.logger.debug('Request completed', {
-          endTime,
-          durationSec: (endTime.getTime() - startTime.getTime()) / 1000,
+          duration: new Date().getTime() - startTime.getTime(),
         });
       })
     );

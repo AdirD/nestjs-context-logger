@@ -9,6 +9,7 @@ describe('GeneralRequestsInterceptor', () => {
   let mockContext: jest.Mocked<ExecutionContext>;
   let mockCallHandler: jest.Mocked<CallHandler>;
   let mockRequest: any;
+  let mockLogger: jest.Mocked<ContextLogger>;
 
   beforeEach(() => {
     mockRequest = {
@@ -28,14 +29,20 @@ describe('GeneralRequestsInterceptor', () => {
       handle: jest.fn().mockReturnValue(of({})),
     } as any;
 
+    mockLogger = {
+      debug: jest.fn(),
+      log: jest.fn(),
+    } as any;
+
     jest.spyOn(ContextLogger, 'updateContext');
 
     const options: ContextLoggerFactoryOptions = {
-      debugEndpoints: ['/debug'],
-      requestContext: jest.fn().mockResolvedValue({ custom: 'value' }),
+      exclude: ['/debug'],
+      enrichContext: jest.fn().mockResolvedValue({ custom: 'value' }),
     };
 
     interceptor = new GeneralRequestsInterceptor(options);
+    (interceptor as any).logger = mockLogger;
   });
 
   it('should add base context to all requests', async () => {
@@ -50,7 +57,7 @@ describe('GeneralRequestsInterceptor', () => {
     );
   });
 
-  it('should execute custom requestContext if provided', async () => {
+  it('should execute custom enrichContext if provided', async () => {
     const observable = await interceptor.intercept(mockContext, mockCallHandler);
     await lastValueFrom(observable);
 
@@ -61,26 +68,37 @@ describe('GeneralRequestsInterceptor', () => {
     );
   });
 
-  it('should handle debug endpoints differently', async () => {
-    mockRequest.url = '/debug';
-    const debugSpy = jest.spyOn(interceptor['logger'], 'debug');
-    const logSpy = jest.spyOn(interceptor['logger'], 'log');
-
+  it('should work without enrichContext option', async () => {
+    interceptor = new GeneralRequestsInterceptor({});
+    (interceptor as any).logger = mockLogger;
+    
     const observable = await interceptor.intercept(mockContext, mockCallHandler);
     await lastValueFrom(observable);
 
-    expect(debugSpy).toHaveBeenCalled();
-    expect(logSpy).not.toHaveBeenCalled();
+    expect(ContextLogger.updateContext).toHaveBeenCalledWith({
+      requestMethod: 'GET',
+      requestUrl: '/test'
+    });
   });
 
-  it('should add duration to context after request completes', async () => {
+  it('should handle debug endpoints differently', async () => {
+    mockRequest.url = '/debug';
+    
     const observable = await interceptor.intercept(mockContext, mockCallHandler);
     await lastValueFrom(observable);
 
-    expect(ContextLogger.updateContext).toHaveBeenCalledWith(
+    expect(mockLogger.debug).toHaveBeenCalled();
+    expect(mockLogger.log).not.toHaveBeenCalled();
+  });
+
+  it('should log request completion with duration', async () => {
+    const observable = await interceptor.intercept(mockContext, mockCallHandler);
+    await lastValueFrom(observable);
+
+    expect(mockLogger.debug).toHaveBeenCalledWith(
+      'Request completed',
       expect.objectContaining({
-        endTime: expect.any(Date),
-        durationSec: expect.any(Number)
+        duration: expect.any(Number)
       })
     );
   });
