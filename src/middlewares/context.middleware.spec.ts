@@ -1,26 +1,25 @@
-import { ContextMiddleware } from './context.middleware';
+import { InitContextMiddleware } from './context.middleware';
 import * as contextStore from '../store/context-store';
-import { FastifyRequest, FastifyReply } from 'fastify';
 
 jest.mock('uuid', () => ({
   v4: () => 'mocked-uuid'
 }));
 
-describe('ContextMiddleware', () => {
-  let middleware: ContextMiddleware;
-  let mockRequest: FastifyRequest['raw'];
-  let mockResponse: FastifyReply['raw'];
+describe('InitContextMiddleware', () => {
+  let middleware: InitContextMiddleware;
+  let mockRequest;
+  let mockResponse;
   let mockNext: jest.Mock;
   let runWithCtxSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    middleware = new ContextMiddleware();
+    middleware = new InitContextMiddleware();
     
     mockRequest = {
       id: 'request-id',
-    } as FastifyRequest['raw'];
+    };
     
-    mockResponse = {} as FastifyReply['raw'];
+    mockResponse = {};
     mockNext = jest.fn();
 
     // Spy on runWithCtx instead

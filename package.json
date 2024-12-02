@@ -13,6 +13,7 @@
     "build": "tsc",
     "test": "jest --testPathIgnorePatterns=.*\\.live\\.",
     "test:debug": "jest debug --runInBand --detectOpenHandles",
+    "test:e2e": "jest context-logger.e2e.spec.ts",
     "lint": "eslint . --ext .ts",
     "lint:fix": "eslint . --ext .ts --fix",
     "clean": "rimraf dist",
@@ -53,6 +54,7 @@
     "@nestjs/testing": "^10.0.0",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.17.9",
+    "@types/supertest": "^6.0.2",
     "@types/uuid": "^10.0.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
@@ -65,6 +67,7 @@
     "prettier": "^3.4.1",
     "rimraf": "^5.0.0",
     "rxjs": "^7.0.0",
+    "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",
     "typescript": "^5.7.2"
   },

@@ -3,18 +3,30 @@ import {
   Module,
   MiddlewareConsumer,
   NestModule,
+  Inject,
 } from '@nestjs/common';
-import { APP_INTERCEPTOR } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
-import { GeneralRequestsInterceptor } from './interceptors/general-requests.interceptor';
-import { ContextMiddleware } from './middlewares/context.middleware';
+import { RequestInterceptor } from './interceptors/request.interceptor';
+import { InitContextMiddleware } from './middlewares/context.middleware';
 import { ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
 import pino from 'pino';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+
 
 @Module({})
 export class ContextLoggerModule implements NestModule {
+  constructor(
+    @Inject('CONTEXT_LOGGER_OPTIONS')
+    private readonly options: ContextLoggerFactoryOptions
+  ) {}
+
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(ContextMiddleware).forRoutes('*');
+    const excludePatterns = this.options.exclude || [];
+    
+    consumer
+      .apply(InitContextMiddleware)
+      .exclude(...excludePatterns)
+      .forRoutes('*');
   }
 
   static forRootAsync(options: {
@@ -55,11 +67,11 @@ export class ContextLoggerModule implements NestModule {
           useFactory: options.useFactory,
           inject: options.inject || [],
         },
+        InitContextMiddleware,
         {
           provide: APP_INTERCEPTOR,
-          useClass: GeneralRequestsInterceptor,
-        },
-        ContextMiddleware,
+          useClass: RequestInterceptor,
+        }
       ],
       global: true,
     };

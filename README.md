@@ -1,8 +1,15 @@
 # nestjs-context-logger
 
+🌟 Request-scoped context logging for NestJS powered by [nestjs-pino](https://github.com/iamolegga/nestjs-pino) with **AUTOMATIC CONTEXT INJECTION IN EVERY LOG** 🌟
+
 > 🔍 Ever tried debugging a production issue with logs like `"Error updating user"` and no context about which user, service, or request caused it? This logger is your solution.
 
-A zero-overhead, request scoped, contextual logging solution for NestJS applications that automatically enriches your logs with request context, correlation IDs, and custom metadata. Built on top of Pino for high performance and designed for modern microservices architectures.
+Built with:
+- 🚀 [nestjs-pino](https://github.com/iamolegga/nestjs-pino) - Platform agnostic logger for NestJS
+- ⚡ [Pino](https://github.com/pinojs/pino) - Ultra-fast Node.js logger
+- 🔄 [AsyncLocalStorage](https://nodejs.org/api/async_context.html#class-asynclocalstorage) - Node.js context propagation
+
+A zero-overhead, request scoped, contextual logging solution for NestJS applications that automatically enriches your logs with request context, correlation IDs, and custom metadata. Designed for modern microservices architectures.
 
 [![NPM Version](https://img.shields.io/npm/v/nestjs-context-logger)](https://www.npmjs.com/package/nestjs-context-logger)
 [![License](https://img.shields.io/npm/l/nestjs-context-logger)](https://github.com/AdirD/nestjs-context-logger/blob/main/LICENSE)
@@ -14,8 +21,7 @@ A zero-overhead, request scoped, contextual logging solution for NestJS applicat
 - [Why nestjs-context-logger?](#why-nestjs-context-logger)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
-- [Want more context?](#want-more-context)
-- [Want more control?](#want-more-control)
+- [Advanced](#advanced-configuration)
 - [Features in Depth](#features-in-depth)
 - [Configuration Options](#configuration-options)
 - [API Reference](#api-reference)
@@ -52,9 +58,9 @@ logger.error('Failed to update user subscription');
 - 🎯 **Zero Code Changes Required**: Keep using the familiar NestJS logger interface
 - ⚡ **High Performance**: Built on Pino, one of the fastest loggers in the Node.js ecosystem
 - 🔄 **Automatic Request Tracking**: Every log entry automatically includes request context
+- 📊 **Default Context**: Enriches each request with `correlationId` and `duration`
 - 🔍 **Debug Production Issues Faster**: Full context in every log message
-- 📊 **Perfect for Microservices**: Track requests across your entire system with correlation IDs
-- 🚀 **Works with Fastify**: Native support for Fastify's high-performance web framework
+- 🚀 **Platform agnostic**: works with `Express` and `Fastify`
 
 ## Installation
 
@@ -85,7 +91,9 @@ export class AppModule {}
 
 That's it! Your logs will automatically include the default context of `correlationId` and `duration`.
 
-## Want more context?
+## Advanced Configuration
+
+### Want more context?
 
 You can enrich your logs with custom context at the application level:
 
@@ -121,7 +129,7 @@ Now every log will include these additional fields:
 // }
 ```
 
-## Want more control?
+### Want more control?
 Update context from anywhere in the code 🎉. The context persists throughout the entire request execution, making it available to all services and handlers within that request.
 
 For example, set up user context in a guard:
@@ -196,21 +204,19 @@ export class FeatureService {
 
 ### ⚡ Performance
 - Built on [Pino](https://github.com/pinojs/pino) for high-performance logging
-- Efficient context storage with AsyncLocalStorage
+- Efficient context storage with `async_hooks` [AsyncLocalStorage](https://nodejs.org/api/async_hooks.html)
 - Minimal overhead compared to standard logging
 
 ### 🔌 Integration Support
-- [Fastify](https://www.fastify.io/) compatible
-- Works with [NestJS Swagger](https://docs.nestjs.com/openapi/introduction)
-- Compatible with logging aggregators (ELK, Datadog, etc.)
-- Supports cloud logging formats (AWS CloudWatch, GCP Cloud Logging)
+- [Fastify](https://fastify.dev/) compatible
+- [Express](https://expressjs.com/) compatible
 
 ## Configuration Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `logLevel` | string | 'info' | Log level (debug, info, warn, error) |
-| `enrichContext` | Function | undefined | Custom context provider |
+| `enrichContext` | Function | ```{ correlationId, duration }``` | Custom context provider |
 | `exclude` | string[] | [] | Endpoints to exclude from logging |
 
 ## API Reference
