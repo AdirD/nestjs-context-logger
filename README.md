@@ -2,7 +2,7 @@
 <p align="center">
   <a href="https://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
-<p align="center">🌟 Request-scoped context logging for NestJS powered by <a href="https://github.com/iamolegga/nestjs-pino">nestjs-pino</a> with <strong>DYNAMIC CONTEXT ENRICHING</strong> 🌟</p>
+<p align="center">🌟 Request-scoped context logger for NestJS
 <p align="center">
   <a href="https://www.npmjs.com/package/nestjs-context-logger" target="_blank"><img src="https://img.shields.io/npm/v/nestjs-context-logger" alt="NPM Version" /></a>
   <a href="https://www.npmjs.com/package/nestjs-context-logger" target="_blank"><img src="https://img.shields.io/npm/l/nestjs-context-logger" alt="Package License" /></a>
@@ -11,41 +11,11 @@
 </p>
 
 
-> 🔍 Ever tried debugging a production issue with logs like `"Error updating user"` but no context about which user, service, or request caused it? **This logger is your solution.** [nestjs-context-logger](https://github.com/AdirD/nestjs-context-logger) — Is a request scoped contextual logging solution for NestJS applications that automatically enriches your logs with request context, correlation IDs, and custom metadata. Designed for NestJS architecture with zero-overhead.
+> 🔍 Ever tried debugging a production issue with logs like `"Error updating user"` but no context about which user, service, or request caused it? **This logger is your solution.** 
 
+## [nestjs-context-logger](https://github.com/AdirD/nestjs-context-logger)
+is a contextual logging solution for NestJS applications that enables you to enrich your logs with custom context, whenever and wherever you want in NestJS request execution lifecycle.
 
-
-```bash
-npm install nestjs-context-logger
-```
-
-
-## Built with:
-- 🚀 [nestjs-pino](https://github.com/iamolegga/nestjs-pino) - Platform agnostic logger for NestJS
-- ⚡ [Pino](https://github.com/pinojs/pino) - Ultra-fast Node.js logger
-- 🔄 [AsyncLocalStorage](https://nodejs.org/api/async_context.html#class-asynclocalstorage) - Node.js context propagation
-
-
-## Table of Contents
-<details>
-<summary>Sections</summary>
-
-- [The Problem](#the-problem)
-- [Why nestjs-context-logger?](#why-nestjs-context-logger)
-- [Installation](#installation)
-- [Quick Start](#quick-start)
-- [Advanced](#advanced-configuration)
-- [Features in Depth](#features-in-depth)
-- [Configuration Options](#configuration-options)
-- [API Reference](#api-reference)
-- [Best Practices](#best-practices)
-- [Performance Considerations](#performance-considerations)
-- [Contributing](#contributing)
-- [Support](#support)
-
-</details>
-
-## The Problem
 
 ```typescript
 // Traditional logging 😢
@@ -67,16 +37,6 @@ logger.error('Failed to update user subscription');
 // }
 ```
 
-## Why nestjs-context-logger?
-- 🎯 **Zero Code Changes Required**: Keep using the familiar NestJS logger interface
-- ⚡ **High Performance**: Built on Pino, one of the fastest loggers in the Node.js ecosystem
-- 🔄 **Automatic Request Tracking**: Every log entry automatically includes request context
-- 📊 **Default Context**: Enriches each request with `correlationId` and `duration`
-- 🔍 **Debug Production Issues Faster**: Full context in every log message
-- 🚀 **Platform agnostic**: works with `Express` and `Fastify`
-
-More in depth read:
-[![Medium Article](https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium)](https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008)
 
 
 ## Installation
@@ -101,9 +61,76 @@ export class AppModule {}
 
 That's it! Your logs will automatically include the default context of `correlationId` and `duration`.
 
+---
+
+## How does it work?
+
+Under the hood, `nestjs-context-logger` leverages Node.js's `AsyncLocalStorage` to maintain isolated context for each request.
+
+### Storage Layer
+- Uses Node.js's built-in `AsyncLocalStorage` for context isolation
+- Each request gets its own isolated storage "bucket" that persists throughout the entire request lifecycle
+- The storage is tied to the Node.js event loop and automatically cleans up when the request ends
+
+### Request Lifecycle
+1. **Context Initialization**
+   - The `InitContextMiddleware` creates a new storage scope for each incoming request with a generated `correlationId`
+
+2. **Context Propagation**
+   - The context automatically flows through async operations (promises, callbacks)
+   - No matter how deep your call stack goes, the context remains accessible
+   - Each request maintains its own isolated context, even during concurrent requests
+
+3. **Request Lifecycle**
+
+```mermaid
+flowchart TB
+    req(HTTP Request) --> mid[Init Middleware]
+    
+    %% ALS as external service
+    mid --"Initialize request context"--> als[Async Local Storage]
+    als --"Store"--> mem[Memory]
+    
+    %% Request flow inside ALS context
+    subgraph als_context[Request Execution in ALS Context]
+        flow1 --"Your Guards, Pipes, etc"--> int[Request Interceptor]
+        int --"Enrich context"--> mem
+        int --> app[Route Handler Code]
+        
+        subgraph logging[Request Execution]
+            app --"Log message"--> logger[Context Logger]
+            logger --"Fetch context"--> mem
+            logger --> pino[Pino]
+        end
+    end
+    
+    %% Connect middleware to flow inside ALS
+    als --> flow1[Continue request within dedicated memory context for execution]
+
+    style als_context fill:#e6ffe6,stroke:#666
+    style logging fill:#f5f5f5,stroke:#666
+    style als fill:#e6ffe6
+    style mem fill:#e6ffe6
+```
+
+### Memory Management
+- Context is stored in memory only for the duration of the request
+- **Automatic garbage collection when request ends (no memory leaks)**
+- Each request's context is completely isolated from others
+- No cross-request contamination, even under high concurrency
+
+
+## Why nestjs-context-logger?
+- 🎯 **Developer experience**: Easy to use, zero code changes required, keep using the familiar NestJS logger interface. More in depth read my piece here 
+[![Medium Article](https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium)](https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008)
+- ⚡ **High Performance**: Built on Pino, one of the fastest loggers in the Node.js ecosystem
+- 📊 **Default Context**: Automatically enriches request with `correlationId` and `duration`
+- 🚀 **Platform agnostic**: works with `Express` and `Fastify`
+- ✅ **Automatic context cleanup**: Memory is cleaned up and garbage collected when request cycle ends
+
 ## Advanced Configuration
 
-### Want more context?
+### Add automatic context enrichment as configuration
 
 You can enrich your logs with custom context at the application level:
 
@@ -139,7 +166,7 @@ Now every log will include these additional fields:
 // }
 ```
 
-### Want more control?
+### Add custom context from anywhere
 Update context from anywhere in the code 🎉. The context persists throughout the entire request execution, making it available to all services and handlers within that request.
 
 For example, set up user context in a guard:
@@ -152,7 +179,7 @@ export class ConnectAuthGuard implements CanActivate {
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const connectedUser = await this.authenticate(request);
-    // Magic here 👇
+    // 👇 Magic here 👇
     ContextLogger.updateContext({ userId: connectedUser.userId });
     return true;
   }
@@ -224,22 +251,11 @@ export class FeatureService {
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `logLevel` | string | 'info' | Log level (debug, info, warn, error) |
-| `enrichContext` | Function | ```{ correlationId, duration }``` | Custom context provider |
+| `enrichContext` | Function | ```{ duration }``` | Custom context provider |
 | `exclude` | string[] | [] | Endpoints to exclude from logging |
 
 ## API Reference
 
-### ContextLogger Methods
-
-| Method | Parameters | Description |
-|--------|------------|-------------|
-| `log()` | `(message: string, bindings?: Record<string, any>)` | Log at info level |
-| `info()` | `(message: string, bindings?: Record<string, any>)` | Log at info level |
-| `error()` | `(message: string, error?: Error, bindings?: Record<string, any>)` | Log at error level |
-| `warn()` | `(message: string, bindings?: Record<string, any>)` | Log at warn level |
-| `debug()` | `(message: string, bindings?: Record<string, any>)` | Log at debug level |
-| `verbose()` | `(message: string, bindings?: Record<string, any>)` | Log at verbose level |
-| `updateContext()` | `(context: Record<string, any>)` | Update the context for current request |
 
 ## Best Practices
 
