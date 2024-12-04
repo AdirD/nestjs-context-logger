@@ -4,6 +4,9 @@ import { ContextLogger } from '../context-logger';
 import { ContextLoggerModule } from '../context-logger.module';
 import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import * as request from 'supertest';
+import { FastifyAdapter } from '@nestjs/platform-fastify';
+import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
+import express from 'express';
 
 // We need to declare the mock implementation before using jest.mock()
 const mockLogger = {
@@ -280,4 +283,107 @@ describe('ContextLogger E2E', () => {
       IsolationCTestController.name,
     ]);
   });
+
+  describe('ContextLogger Platform Compatibility', () => {
+    let moduleFixture: TestingModule;
+  
+    beforeEach(async () => {
+      jest.clearAllMocks();
+  
+      moduleFixture = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRootAsync({
+            useFactory: () => ({
+              logLevel: 'debug',
+              enrichContext: (executionContext: ExecutionContext) => {
+                if (!executionContext) return { environment: 'test' };
+                const request = executionContext.switchToHttp().getRequest();
+                return {
+                  environment: 'test',
+                  traceId: request.headers['x-trace-id']
+                };
+              }
+            })
+          })
+        ],
+        controllers: [SimpleTestController],
+      }).compile();
+    });
+  
+    describe('Express Adapter', () => {
+      let app: INestApplication;
+  
+      beforeEach(async () => {
+        app = moduleFixture.createNestApplication<NestExpressApplication>();
+        await app.init();
+        await app.listen(0);
+      });
+  
+      afterEach(async () => {
+        if (app) {
+          await app.close();
+        }
+      });
+  
+      it('should work with Express adapter', async () => {
+        const response = await request(app.getHttpServer())
+          .get('/simple-test')
+          .set('X-Trace-ID', 'express-trace-123')
+          .expect(200);
+  
+        expect(response.body).toEqual({ success: true });
+        
+        expect(mockLogger.log.mock.calls[0]).toMatchObject([
+          {
+            correlationId: expect.any(String),
+            requestMethod: "GET",
+            requestUrl: "/simple-test",
+            environment: "test",
+            traceId: "express-trace-123",
+          },
+          'test endpoint hit',
+          SimpleTestController.name
+        ]);
+      });
+    });
+  
+    describe('Fastify Adapter', () => {
+      let app: INestApplication;
+  
+      beforeEach(async () => {
+        const fastifyAdapter = new FastifyAdapter();
+        app = moduleFixture.createNestApplication(fastifyAdapter);
+        await app.init();
+        await app.getHttpAdapter().getInstance().ready(); // Important for Fastify
+      });
+  
+      afterEach(async () => {
+        if (app) {
+          await app.close();
+        }
+      });
+  
+      it('should work with Fastify adapter', async () => {
+        const response = await request(app.getHttpServer())
+          .get('/simple-test')
+          .set('X-Trace-ID', 'fastify-trace-123')
+          .expect(200);
+  
+        expect(response.body).toEqual({ success: true });
+        
+        expect(mockLogger.log.mock.calls[0]).toMatchObject([
+          {
+            correlationId: expect.any(String),
+            requestMethod: "GET",
+            requestUrl: "/simple-test",
+            environment: "test",
+            traceId: "fastify-trace-123",
+          },
+          'test endpoint hit',
+          SimpleTestController.name
+        ]);
+      });
+    });
+  });
 });
+
