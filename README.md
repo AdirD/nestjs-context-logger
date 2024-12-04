@@ -61,76 +61,19 @@ export class AppModule {}
 
 That's it! Your logs will automatically include the default context of `correlationId` and `duration`.
 
----
-
-## How does it work?
-
-Under the hood, `nestjs-context-logger` leverages Node.js's `AsyncLocalStorage` to maintain isolated context for each request.
-
-### Storage Layer
-- Uses Node.js's built-in `AsyncLocalStorage` for context isolation
-- Each request gets its own isolated storage "bucket" that persists throughout the entire request lifecycle
-- The storage is tied to the Node.js event loop and automatically cleans up when the request ends
-
-### Request Lifecycle
-1. **Context Initialization**
-   - The `InitContextMiddleware` creates a new storage scope for each incoming request with a generated `correlationId`
-
-2. **Context Propagation**
-   - The context automatically flows through async operations (promises, callbacks)
-   - No matter how deep your call stack goes, the context remains accessible
-   - Each request maintains its own isolated context, even during concurrent requests
-
-3. **Request Lifecycle**
-
-```mermaid
-flowchart TB
-    req(HTTP Request) --> mid[Init Middleware]
-    
-    %% ALS as external service
-    mid --"Initialize request context"--> als[Async Local Storage]
-    als --"Store"--> mem[Memory]
-    
-    %% Request flow inside ALS context
-    subgraph als_context[Request Execution in ALS Context]
-        flow1 --"Your Guards, Pipes, etc"--> int[Request Interceptor]
-        int --"Enrich context"--> mem
-        int --> app[Route Handler Code]
-        
-        subgraph logging[Request Execution]
-            app --"Log message"--> logger[Context Logger]
-            logger --"Fetch context"--> mem
-            logger --> pino[Pino]
-        end
-    end
-    
-    %% Connect middleware to flow inside ALS
-    als --> flow1[Continue request within dedicated memory context for execution]
-
-    style als_context fill:#e6ffe6,stroke:#666
-    style logging fill:#f5f5f5,stroke:#666
-    style als fill:#e6ffe6
-    style mem fill:#e6ffe6
-```
-
-### Memory Management
-- Context is stored in memory only for the duration of the request
-- **Automatic garbage collection when request ends (no memory leaks)**
-- Each request's context is completely isolated from others
-- No cross-request contamination, even under high concurrency
-
 
 ## Why nestjs-context-logger?
-- 🎯 **Developer experience**: Easy to use, zero code changes required, keep using the familiar NestJS logger interface. More in depth read my piece here 
 [![Medium Article](https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium)](https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008)
+- 🎯 **Developer experience**: Easy to use, zero code changes required, keep using the familiar `@nestjs/common` logger interface.
 - ⚡ **High Performance**: Built on Pino, one of the fastest loggers in the Node.js ecosystem
 - 📊 **Default Context**: Automatically enriches request with `correlationId` and `duration`
 - 🚀 **Platform agnostic**: works with `Express` and `Fastify`
 - ✅ **Automatic context cleanup**: Memory is cleaned up and garbage collected when request cycle ends
 
+
 ## Advanced Configuration
 
-### Add automatic context enrichment as configuration
+### Automatic context enrichment via configuration
 
 You can enrich your logs with custom context at the application level:
 
@@ -222,6 +165,66 @@ export class FeatureService {
   }
 }
 ```
+
+
+---
+
+## How does it work?
+
+Under the hood, `nestjs-context-logger` leverages Node.js's `AsyncLocalStorage` to maintain isolated context for each request.
+
+### Storage Layer
+- Uses Node.js's built-in `AsyncLocalStorage` for context isolation
+- Each request gets its own isolated storage "bucket" that persists throughout the entire request lifecycle
+- The storage is tied to the Node.js event loop and automatically cleans up when the request ends
+
+### Request Lifecycle
+1. **Context Initialization**
+   - The `InitContextMiddleware` creates a new storage scope for each incoming request with a generated `correlationId`
+
+2. **Context Propagation**
+   - The context automatically flows through async operations (promises, callbacks)
+   - No matter how deep your call stack goes, the context remains accessible
+   - Each request maintains its own isolated context, even during concurrent requests
+
+3. **Request Lifecycle**
+
+```mermaid
+flowchart TB
+    req(HTTP Request) --> mid[Init Middleware]
+    
+    %% ALS as external service
+    mid --"Initialize request context"--> als[Async Local Storage]
+    als --"Store"--> mem[Memory]
+    
+    %% Request flow inside ALS context
+    subgraph als_context[Request Execution in ALS Context]
+        flow1 --"Your Guards, Pipes, etc"--> int[Request Interceptor]
+        int --"Enrich context"--> mem
+        int --> app[Route Handler Code]
+        
+        subgraph logging[Request Execution]
+            app --"Log message"--> logger[Context Logger]
+            logger --"Fetch context"--> mem
+            logger --> pino[Pino]
+        end
+    end
+    
+    %% Connect middleware to flow inside ALS
+    als --> flow1[Continue request within dedicated memory context for execution]
+
+    style als_context fill:#e6ffe6,stroke:#666
+    style logging fill:#f5f5f5,stroke:#666
+    style als fill:#e6ffe6
+    style mem fill:#e6ffe6
+```
+
+### Memory Management
+- Context is stored in memory only for the duration of the request
+- **Automatic garbage collection when request ends (no memory leaks)**
+- Each request's context is completely isolated from others
+- No cross-request contamination, even under high concurrency
+
 
 ## Features in Depth
 

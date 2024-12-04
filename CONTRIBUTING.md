@@ -84,14 +84,43 @@ src/
 - Update types if you're changing interfaces
 
 ### Commit Messages
-We follow basic conventional commits. Start your commit message with one of these:
-- `feat:` new features
-- `fix:` bug fixes
-- `docs:` documentation changes
-- `test:` add/modify tests
-- `refactor:` code changes that don't fix bugs or add features
+We follow [Conventional Commits](https://www.conventionalcommits.org/). Each commit message should be structured as follows:
 
-Example: `feat: add support for custom serializers`
+- `feat: <description>`
+  - New features that add functionality
+  - Triggers **MINOR** version bump (1.1.0 → 1.2.0)
+  - Example: `feat: add support for custom serializers`
+
+- `fix: <description>`
+  - Bug fixes and patches
+  - Triggers **PATCH** version bump (1.1.1 → 1.1.2)
+  - Example: `fix: prevent context leak in concurrent requests`
+
+- `BREAKING CHANGE: <description>` or `feat!: <description>`
+  - Changes that break backward compatibility
+  - Triggers **MAJOR** version bump (1.0.0 → 2.0.0)
+  - Example: `feat!: change logger API to async methods`
+
+- `docs: <description>`
+  - Documentation changes only
+  - **No version bump**
+  - Example: `docs: improve API reference section`
+
+- `test: <description>`
+  - Adding or modifying tests
+  - **No version bump**
+  - Example: `test: add e2e tests for Express adapter`
+
+- `refactor: <description>`
+  - Code changes that neither fix bugs nor add features
+  - **No version bump**
+  - Example: `refactor: simplify context storage logic`
+
+- `chore: <description>`
+  - Maintenance tasks, dependency updates, etc
+  - **No version bump**
+  - Example: `chore: update nestjs to v10`
+
 
 ## Need Help?
 
