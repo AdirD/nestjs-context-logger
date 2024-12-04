@@ -19,7 +19,6 @@ export class ContextLoggerModule implements NestModule {
     @Inject('CONTEXT_LOGGER_OPTIONS')
     private readonly options: ContextLoggerFactoryOptions,
     private readonly nestJSPinoLogger: NestJSPinoLogger
-
   ) {}
 
   onModuleInit() {
@@ -28,51 +27,34 @@ export class ContextLoggerModule implements NestModule {
 
   configure(consumer: MiddlewareConsumer) {
     const excludePatterns = this.options.exclude || [];
-
     consumer
       .apply(InitContextMiddleware)
       .exclude(...excludePatterns)
       .forRoutes('*');
   }
 
-  static forRootAsync(options: {
-    imports?: any[];
-    useFactory: (
-      ...args: any[]
-    ) => Promise<ContextLoggerFactoryOptions> | ContextLoggerFactoryOptions;
-    inject?: any[];
-  }): DynamicModule {
+  private static createPinoConfig(options: ContextLoggerFactoryOptions) {
     return {
-      module: ContextLoggerModule,
-      imports: [
-        LoggerModule.forRootAsync({
-          imports: options.imports || [],
-          useFactory: async (...args: any[]) => {
-            const factoryOptions = await options.useFactory(...args);
-
-            return {
-              renameContext: 'service',
-              pinoHttp: {
-                autoLogging: false,
-                logger: pino({
-                  level: factoryOptions.logLevel || 'info',
-                  formatters: {
-                    level: (label) => ({ level: label }),
-                  },
-                }),
-              },
-              exclude: factoryOptions.exclude || [],
-            };
+      renameContext: 'service',
+      pinoHttp: {
+        autoLogging: false,
+        logger: pino({
+          level: options.logLevel || 'info',
+          formatters: {
+            level: (label) => ({ level: label }),
           },
-          inject: options.inject || [],
         }),
-      ],
+      },
+      exclude: options.exclude || [],
+    };
+  }
+
+  private static createBaseModuleConfig(
+    optionsProvider: any
+  ): Pick<DynamicModule, 'providers' | 'exports' | 'global'> {
+    return {
       providers: [
-        {
-          provide: 'CONTEXT_LOGGER_OPTIONS',
-          useFactory: options.useFactory,
-          inject: options.inject || [],
-        },
+        optionsProvider,
         InitContextMiddleware,
         {
           provide: APP_INTERCEPTOR,
@@ -82,6 +64,48 @@ export class ContextLoggerModule implements NestModule {
       ],
       exports: [ContextLogger],
       global: true,
+    };
+  }
+
+  static forRoot(options: ContextLoggerFactoryOptions = {}): DynamicModule {
+    const optionsProvider = {
+      provide: 'CONTEXT_LOGGER_OPTIONS',
+      useValue: options,
+    };
+
+    return {
+      module: ContextLoggerModule,
+      imports: [LoggerModule.forRoot(this.createPinoConfig(options))],
+      ...this.createBaseModuleConfig(optionsProvider),
+    };
+  }
+
+  static forRootAsync(options: {
+    imports?: any[];
+    useFactory: (
+      ...args: any[]
+    ) => Promise<ContextLoggerFactoryOptions> | ContextLoggerFactoryOptions;
+    inject?: any[];
+  }): DynamicModule {
+    const optionsProvider = {
+      provide: 'CONTEXT_LOGGER_OPTIONS',
+      useFactory: options.useFactory,
+      inject: options.inject || [],
+    };
+
+    return {
+      module: ContextLoggerModule,
+      imports: [
+        LoggerModule.forRootAsync({
+          imports: options.imports || [],
+          useFactory: async (...args: any[]) => {
+            const factoryOptions = await options.useFactory(...args);
+            return this.createPinoConfig(factoryOptions);
+          },
+          inject: options.inject || [],
+        }),
+      ],
+      ...this.createBaseModuleConfig(optionsProvider),
     };
   }
 }
