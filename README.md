@@ -1,14 +1,23 @@
 # nestjs-context-logger
+<p align="center">
+  <a href="https://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+</p>
+<p align="center">🌟 Request-scoped context logging for NestJS powered by <a href="https://github.com/iamolegga/nestjs-pino">nestjs-pino</a> with <strong>DYNAMIC CONTEXT ENRICHING</strong> 🌟</p>
+<p align="center">
+  <a href="https://www.npmjs.com/package/nestjs-context-logger" target="_blank"><img src="https://img.shields.io/npm/v/nestjs-context-logger" alt="NPM Version" /></a>
+  <a href="https://www.npmjs.com/package/nestjs-context-logger" target="_blank"><img src="https://img.shields.io/npm/l/nestjs-context-logger" alt="Package License" /></a>
+  <a href="https://www.npmjs.com/package/nestjs-context-logger" target="_blank"><img src="https://img.shields.io/npm/dm/nestjs-context-logger" alt="NPM Downloads" /></a>
+  <a href="https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008" target="_blank"><img src="https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium" alt="Medium Article" /></a>
+</p>
 
-🌟 Request-scoped context logging for NestJS powered by [nestjs-pino](https://github.com/iamolegga/nestjs-pino) with **AUTOMATIC CONTEXT INJECTION IN EVERY LOG** 🌟
 
-> 🔍 Ever tried debugging a production issue with logs like `"Error updating user"` but no context about which user, service, or request caused it? This logger is your solution.
+> 🔍 Ever tried debugging a production issue with logs like `"Error updating user"` but no context about which user, service, or request caused it? **This logger is your solution.** [nestjs-context-logger](https://github.com/AdirD/nestjs-context-logger) — Is a request scoped contextual logging solution for NestJS applications that automatically enriches your logs with request context, correlation IDs, and custom metadata. Designed for NestJS architecture with zero-overhead.
 
-[nestjs-context-logger](https://github.com/AdirD/nestjs-context-logger) — Is a request scoped contextual logging solution for NestJS applications that automatically enriches your logs with request context, correlation IDs, and custom metadata. Designed for NestJS architecture with zero-overhead.
 
-[![NPM Version](https://img.shields.io/npm/v/nestjs-context-logger)](https://www.npmjs.com/package/nestjs-context-logger)
-[![License](https://img.shields.io/npm/l/nestjs-context-logger)](https://github.com/AdirD/nestjs-context-logger/blob/main/LICENSE)
-[![Downloads](https://img.shields.io/npm/dm/nestjs-context-logger)](https://www.npmjs.com/package/nestjs-context-logger)
+
+```bash
+npm install nestjs-context-logger
+```
 
 
 ## Built with:
@@ -18,6 +27,9 @@
 
 
 ## Table of Contents
+<details>
+<summary>Sections</summary>
+
 - [The Problem](#the-problem)
 - [Why nestjs-context-logger?](#why-nestjs-context-logger)
 - [Installation](#installation)
@@ -30,6 +42,8 @@
 - [Performance Considerations](#performance-considerations)
 - [Contributing](#contributing)
 - [Support](#support)
+
+</details>
 
 ## The Problem
 
@@ -54,8 +68,6 @@ logger.error('Failed to update user subscription');
 ```
 
 ## Why nestjs-context-logger?
-In depth 
-[![Medium Article](https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium)](https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008)
 - 🎯 **Zero Code Changes Required**: Keep using the familiar NestJS logger interface
 - ⚡ **High Performance**: Built on Pino, one of the fastest loggers in the Node.js ecosystem
 - 🔄 **Automatic Request Tracking**: Every log entry automatically includes request context
@@ -63,18 +75,14 @@ In depth
 - 🔍 **Debug Production Issues Faster**: Full context in every log message
 - 🚀 **Platform agnostic**: works with `Express` and `Fastify`
 
+More in depth read:
+[![Medium Article](https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium)](https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008)
+
 
 ## Installation
 
 ```bash
-# npm
 npm install nestjs-context-logger
-
-# yarn
-yarn add nestjs-context-logger
-
-# pnpm
-pnpm add nestjs-context-logger
 ```
 
 ## Quick Start
@@ -191,25 +199,23 @@ export class FeatureService {
 ## Features in Depth
 
 ### 🔄 Automatic Context Injection
-- Request IDs
-- Correlation IDs for distributed tracing
-- HTTP method and URL
-- Service name
-- Custom context providers
-- User and tenant information
+- Correlation ID
+- Service Name
+- Request Duration
+- Name, Host, PID
 
 ### 🎯 Developer Experience
-- TypeScript support
-- Familiar NestJS logger interface
-- Works with existing logging code
-- Request execution isolation
+- Typed Logger (Finally!)
+- Familiar NestJS logger interface (Same as `@nestjs/common` default experience)
+- Context Isolation via middleware
+- Global Request Interceptor for enriching context 
 
 ### ⚡ Performance
 - Built on [Pino](https://github.com/pinojs/pino) for high-performance logging
 - Efficient context storage with `async_hooks` [AsyncLocalStorage](https://nodejs.org/api/async_hooks.html)
 - Minimal overhead compared to standard logging
 
-### 🔌 Integration Support
+### 🔌 Integration Support (Platform Agnostic)
 - [Fastify](https://fastify.dev/) compatible
 - [Express](https://expressjs.com/) compatible
 
