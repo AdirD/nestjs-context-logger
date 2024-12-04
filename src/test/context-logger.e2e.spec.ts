@@ -1,27 +1,56 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, Controller, Get, Injectable, ExecutionContext } from '@nestjs/common';
+import { INestApplication, Controller, Get, Injectable, ExecutionContext, DynamicModule } from '@nestjs/common';
 import { ContextLogger } from '../context-logger';
 import { ContextLoggerModule } from '../context-logger.module';
 import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import * as request from 'supertest';
 
+// We need to declare the mock implementation before using jest.mock()
+const mockLogger = {
+  log: jest.fn(),
+  error: jest.fn(),
+  warn: jest.fn(),
+  debug: jest.fn(),
+  verbose: jest.fn(),
+  fatal: jest.fn(),
+};
+
+// Mock needs to be before any imports that might use it
+jest.mock('nestjs-pino', () => ({
+  LoggerModule: {
+    forRootAsync: jest.fn().mockImplementation((): DynamicModule => ({
+      module: class MockLoggerModule {},
+      providers: [
+        {
+          provide: NestJSPinoLogger,
+          useValue: mockLogger,
+        },
+      ],
+      exports: [NestJSPinoLogger],
+      global: true,
+    })),
+  },
+  Logger: jest.fn().mockImplementation(() => mockLogger),
+}));
+
 @Injectable()
 class ChainTestService {
-  constructor(private readonly logger: ContextLogger) {}
+  private readonly logger = new ContextLogger(ChainTestService.name);
 
   async doSomething() {
-    // Add a small delay to ensure requests overlap
     await new Promise(resolve => setTimeout(resolve, 10));
     this.logger.log('service method called');
+    ContextLogger.updateContext({ serviceField: 'service-value' });
     return { success: true };
   }
 }
 
 @Controller()
 class ChainTestController {
+  private readonly logger = new ContextLogger(ChainTestController.name);
+
   constructor(
     private service: ChainTestService,
-    private readonly logger: ContextLogger
   ) {}
 
   @Get('/chain-test')
@@ -35,30 +64,61 @@ class ChainTestController {
 }
 
 @Controller()
-class TestController {
-  constructor(private readonly logger: ContextLogger) {}
+class SimpleTestController {
+  private readonly logger = new ContextLogger(SimpleTestController.name);
 
-  @Get('/test')
+  @Get('/simple-test')
   test() {
     this.logger.log('test endpoint hit');
     return { success: true };
   }
 }
 
+@Controller()
+class IsolationATestController {
+  private readonly logger = new ContextLogger(IsolationATestController.name);
+
+  @Get('/isolation-test-a')
+  async test() {
+    await new Promise(resolve => setTimeout(resolve, 10));
+    ContextLogger.updateContext({ IsolationATestController: 'IsolationATestController' });
+    this.logger.log('test endpoint a hit');
+    return { success: true };
+  }
+}
+
+@Controller()
+class IsolationBTestController {
+  private readonly logger = new ContextLogger(IsolationBTestController.name);
+
+  @Get('/isolation-test-b')
+  async test() {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    ContextLogger.updateContext({ IsolationBTestController: 'IsolationBTestController' });
+    this.logger.log('test endpoint b hit');
+    return { success: true };
+  }
+}
+
+@Controller()
+class IsolationCTestController {
+  private readonly logger = new ContextLogger(IsolationCTestController.name);
+
+  @Get('/isolation-test-c')
+  async test() {
+    await new Promise(resolve => setTimeout(resolve, 500));
+    ContextLogger.updateContext({ IsolationCTestController: 'IsolationCTestController' });
+    this.logger.log('test endpoint c hit');
+    return { success: true };
+  }
+}
+
 describe('ContextLogger E2E', () => {
   let app: INestApplication;
-  let mockNestJSPinoLogger: jest.Mocked<NestJSPinoLogger>;
 
   beforeEach(async () => {
-    mockNestJSPinoLogger = {
-      log: jest.fn(),
-      info: jest.fn(),
-      debug: jest.fn(),
-      error: jest.fn(),
-      warn: jest.fn(),
-      fatal: jest.fn(),
-      verbose: jest.fn(),
-    } as any;
+    // Reset mocks before each test
+    jest.clearAllMocks();
 
     const moduleFixture: TestingModule = await Test.createTestingModule({
       imports: [
@@ -76,39 +136,35 @@ describe('ContextLogger E2E', () => {
           })
         })
       ],
-      controllers: [TestController, ChainTestController],
+      controllers: [SimpleTestController, ChainTestController, IsolationATestController, IsolationBTestController, IsolationCTestController ],
       providers: [ChainTestService]
-    })
-      .overrideProvider(NestJSPinoLogger)
-      .useValue(mockNestJSPinoLogger)
-      .compile();
+    }).compile();
 
     app = moduleFixture.createNestApplication();
     await app.init();
   });
 
   afterEach(async () => {
-    jest.resetAllMocks();
     await app.close();
   });
 
   it('should properly log request with enriched context', async () => {
     const response = await request(app.getHttpServer())
-      .get('/test')
+      .get('/simple-test')
       .set('X-Trace-ID', 'trace-123')
       .expect(200);
 
     expect(response.body).toEqual({ success: true });
     
-    expect(mockNestJSPinoLogger.log).toHaveBeenCalledWith(
+    expect(mockLogger.log).toHaveBeenCalledWith(
       expect.objectContaining({
         environment: 'test',
         requestMethod: 'GET',
-        requestUrl: '/test',
+        requestUrl: '/simple-test',
         traceId: 'trace-123'
       }),
       'test endpoint hit',
-      TestController.name
+      SimpleTestController.name
     );
   });
 
@@ -118,90 +174,110 @@ describe('ContextLogger E2E', () => {
       .set('X-Trace-ID', 'trace-123')
       .expect(200);
 
-    const logCalls = mockNestJSPinoLogger.log.mock.calls;
+    const logCalls = mockLogger.log.mock.calls;
+    const expectedCorrelationId = logCalls[0][0].correlationId;
     expect(logCalls).toHaveLength(3);
-    
-    // First log from controller (before updateContext)
-    expect(logCalls[0][0]).toMatchObject({
-      environment: 'test',
-      traceId: 'trace-123',
-      requestMethod: 'GET',
-      requestUrl: '/chain-test'
-    });
-    
-    // Second log from service (after controller's updateContext)
-    expect(logCalls[1][0]).toMatchObject({
-      environment: 'test',
-      traceId: 'trace-123',
-      requestMethod: 'GET',
-      requestUrl: '/chain-test',
-      controllerField: 'controller-value'
-    });
-    
-    // Third log from controller complete
-    expect(logCalls[2][0]).toMatchObject({
-      environment: 'test',
-      traceId: 'trace-123',
-      requestMethod: 'GET',
-      requestUrl: '/chain-test',
-      controllerField: 'controller-value'
-    });
+    expect(logCalls[0]).toMatchObject([
+      {
+        correlationId: expectedCorrelationId,
+        requestMethod: 'GET',
+        requestUrl: '/chain-test',
+        environment: 'test',
+        traceId: 'trace-123',
+      },
+      'controller hit',
+      ChainTestController.name,
+    ]);
+
+    expect(logCalls[1]).toMatchObject([
+      {
+        correlationId: expectedCorrelationId,
+        requestMethod: 'GET',
+        requestUrl: '/chain-test',
+        environment: 'test',
+        traceId: 'trace-123',
+        controllerField: 'controller-value',
+      },
+      'service method called',
+      ChainTestService.name,
+    ]);
+
+    expect(logCalls[2]).toMatchObject([
+      {
+        correlationId: expectedCorrelationId,
+        requestMethod: 'GET',
+        requestUrl: '/chain-test',
+        environment: 'test',
+        traceId: 'trace-123',
+        controllerField: 'controller-value',
+        serviceField: 'service-value',
+      },
+      'controller complete',
+      ChainTestController.name,
+    ]);
   });
 
   it('should maintain isolated contexts for concurrent requests', async () => {
     await Promise.all([
       request(app.getHttpServer())
-        .get('/chain-test')
-        .set('X-Trace-ID', 'trace-1')
+        .get('/isolation-test-a')
+        .set('X-Trace-ID', 'trace-a')
         .expect(200),
       request(app.getHttpServer())
-        .get('/chain-test')
-        .set('X-Trace-ID', 'trace-2')
+        .get('/isolation-test-b')
+        .set('X-Trace-ID', 'trace-b')
+        .expect(200),
+      request(app.getHttpServer())
+        .get('/isolation-test-c')
+        .set('X-Trace-ID', 'trace-c')
         .expect(200)
     ]);
 
-    const logCalls = mockNestJSPinoLogger.log.mock.calls;
-    expect(logCalls).toHaveLength(6); // 3 logs per request
-
-    const trace1Logs = logCalls.filter(call => call[0].traceId === 'trace-1');
-    const trace2Logs = logCalls.filter(call => call[0].traceId === 'trace-2');
-
-    expect(trace1Logs).toHaveLength(3);
-    expect(trace2Logs).toHaveLength(3);
-
-    trace1Logs.forEach(([context]) => {
-      expect(context).toMatchObject({
-        environment: 'test',
-        traceId: 'trace-1',
+    // Assert
+    const logCalls = mockLogger.log.mock.calls;
+    // Ensure 1 log per request
+    expect(logCalls).toHaveLength(3);
+    // Ensure all correlationIds are different
+    const correlationIds = logCalls.map(call => call[0].correlationId);
+    expect(new Set(correlationIds).size).toBe(correlationIds.length);
+    // Ensure all logs are isolated
+    expect(logCalls[0]).toMatchObject([
+      {
+        correlationId: expect.any(String),
         requestMethod: 'GET',
-        requestUrl: '/chain-test'
-      });
-      // Skip first log which won't have controllerField
-      if (context.controllerField) {
-        expect(context.controllerField).toBe('controller-value');
-      }
-    });
-
-    trace2Logs.forEach(([context]) => {
-      expect(context).toMatchObject({
+        requestUrl: '/isolation-test-a',
         environment: 'test',
-        traceId: 'trace-2',
+        traceId: 'trace-a',
+        IsolationATestController: 'IsolationATestController',
+      },
+      'test endpoint a hit',
+      IsolationATestController.name,
+    ]);
+
+    expect(logCalls[1]).toMatchObject([
+      {
+        correlationId: expect.any(String),
         requestMethod: 'GET',
-        requestUrl: '/chain-test'
-      });
-      // Skip first log which won't have controllerField
-      if (context.controllerField) {
-        expect(context.controllerField).toBe('controller-value');
-      }
-    });
+        requestUrl: '/isolation-test-b',
+        environment: 'test',
+        traceId: 'trace-b',
+        IsolationBTestController: 'IsolationBTestController',
+      },
+      'test endpoint b hit',
+      IsolationBTestController.name,
+    ]);
 
-    // Verify logs are in the expected sequence for each trace
-    expect(trace1Logs[0][1]).toBe('controller hit');
-    expect(trace1Logs[1][1]).toBe('service method called');
-    expect(trace1Logs[2][1]).toBe('controller complete');
-
-    expect(trace2Logs[0][1]).toBe('controller hit');
-    expect(trace2Logs[1][1]).toBe('service method called');
-    expect(trace2Logs[2][1]).toBe('controller complete');
+    expect(logCalls[2]).toMatchObject([
+      {
+        correlationId: expect.any(String),
+        requestMethod: 'GET',
+        requestUrl: '/isolation-test-c',
+        environment: 'test',
+        traceId: 'trace-c',
+        IsolationCTestController: 'IsolationCTestController',
+      },
+      'test endpoint c hit',
+      IsolationCTestController.name,
+    ]);
   });
 });
