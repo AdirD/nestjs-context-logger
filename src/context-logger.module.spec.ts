@@ -134,40 +134,49 @@ describe('ContextLoggerModule', () => {
   });
 
   describe('forRootAsync configuration', () => {
-    it('should configure with ConfigService', async () => {
-      mockConfigService.get.mockImplementation((key: string) => {
-        switch(key) {
-        case 'LOG_LEVEL':
-          return 'debug';
-        case 'EXCLUDED_PATHS':
-          return '/health,/metrics';
-        default:
-          return undefined;
-        }
+    describe('forRootAsync configuration', () => {
+      it('should configure module with async factory function', async () => {
+        const moduleRef = await Test.createTestingModule({
+          imports: [
+            ContextLoggerModule.forRootAsync({
+              useFactory: () => ({ 
+                logLevel: 'debug',
+                exclude: ['/health', '/metrics']
+              })
+            })
+          ],
+          providers: [
+            {
+              provide: NestJSPinoLogger,
+              useValue: mockLogger
+            }
+          ]
+        }).compile();
+      
+        const contextLoggerModule = moduleRef.get(ContextLoggerModule);
+        contextLoggerModule.configure(consumer);
+      
+        expect(consumer.exclude).toHaveBeenCalledWith('/health', '/metrics');
+        expect(LoggerModule.forRootAsync).toHaveBeenCalled();
       });
     
-      const moduleRef = await Test.createTestingModule({
-        imports: [
-          ContextLoggerModule.forRootAsync({
-            useFactory: () => ({ 
-              logLevel: 'debug',
-              exclude: ['/health', '/metrics']
+      it('should handle async factory errors gracefully', async () => {
+        const errorFactory = async () => {
+          throw new Error('Config error');
+        };
+    
+        await expect(Test.createTestingModule({
+          imports: [
+            ContextLoggerModule.forRootAsync({
+              useFactory: errorFactory
             })
-          })
-        ],
-        providers: [
-          {
-            provide: NestJSPinoLogger,
-            useValue: mockLogger
-          }
-        ]
-      }).compile();
-    
-      const contextLoggerModule = moduleRef.get(ContextLoggerModule);
-      contextLoggerModule.configure(consumer);
-    
-      expect(consumer.exclude).toHaveBeenCalledWith('/health', '/metrics');
-      expect(LoggerModule.forRootAsync).toHaveBeenCalled();
+          ],
+        })
+          .overrideProvider(NestJSPinoLogger)
+          .useClass(NestJSPinoLogger)
+          .compile()
+        ).rejects.toThrow('Config error');
+      });
     });
 
     it('should handle async factory errors gracefully', async () => {
@@ -190,6 +199,19 @@ describe('ContextLoggerModule', () => {
   });
 
   describe('module behavior', () => {
+    it('should work with direct module import', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        imports: [ContextLoggerModule]
+      }).compile();
+  
+      const contextLoggerModule = module.get(ContextLoggerModule);
+      contextLoggerModule.configure(consumer);
+  
+      expect(consumer.apply).toHaveBeenCalledWith(InitContextMiddleware);
+      expect(consumer.exclude).toHaveBeenCalledWith();
+      expect(contextLoggerModule).toBeDefined();
+    });
+  
     it('should make the module global', async () => {
       const syncModule = ContextLoggerModule.forRoot();
       const asyncModule = ContextLoggerModule.forRootAsync({

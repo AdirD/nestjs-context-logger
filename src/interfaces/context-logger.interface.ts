@@ -1,4 +1,4 @@
-import { ExecutionContext } from '@nestjs/common';
+import { ExecutionContext, ModuleMetadata } from '@nestjs/common';
 
 export interface ContextLoggerFactoryOptions {
   /**
@@ -21,4 +21,9 @@ export interface ContextLoggerFactoryOptions {
    * Log level for the logger, defaults to 'info'
    */
   logLevel?: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
+}
+
+export interface ContextLoggerAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
+  useFactory: (...args: any[]) => Promise<ContextLoggerFactoryOptions> | ContextLoggerFactoryOptions;
+  inject?: any[];
 }

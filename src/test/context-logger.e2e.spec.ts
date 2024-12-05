@@ -2,39 +2,64 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication, Controller, Get, Injectable, ExecutionContext, DynamicModule } from '@nestjs/common';
 import { ContextLogger } from '../context-logger';
 import { ContextLoggerModule } from '../context-logger.module';
-import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import * as request from 'supertest';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
-import { ExpressAdapter, NestExpressApplication } from '@nestjs/platform-express';
-import express from 'express';
+import { NestExpressApplication } from '@nestjs/platform-express';
 
-// We need to declare the mock implementation before using jest.mock()
-const mockLogger = {
-  log: jest.fn(),
-  error: jest.fn(),
-  warn: jest.fn(),
-  debug: jest.fn(),
-  verbose: jest.fn(),
-  fatal: jest.fn(),
-};
+jest.mock('nestjs-pino', () => {
+  const mockNestJSPinoLogger = {
+    log: jest.fn(),
+    error: jest.fn(),
+    warn: jest.fn(),
+    debug: jest.fn(),
+    verbose: jest.fn(),
+    fatal: jest.fn(),
+  };
 
-// Mock needs to be before any imports that might use it
-jest.mock('nestjs-pino', () => ({
-  LoggerModule: {
-    forRootAsync: jest.fn().mockImplementation((): DynamicModule => ({
-      module: class MockLoggerModule {},
-      providers: [
-        {
-          provide: NestJSPinoLogger,
-          useValue: mockLogger,
-        },
-      ],
-      exports: [NestJSPinoLogger],
-      global: true,
-    })),
-  },
-  Logger: jest.fn().mockImplementation(() => mockLogger),
-}));
+  class MockLogger {
+    log = mockNestJSPinoLogger.log;
+    error = mockNestJSPinoLogger.error;
+    warn = mockNestJSPinoLogger.warn;
+    debug = mockNestJSPinoLogger.debug;
+    verbose = mockNestJSPinoLogger.verbose;
+    fatal = mockNestJSPinoLogger.fatal;
+  }
+
+  return {
+    Logger: MockLogger,
+    LoggerModule: {
+      forRoot: jest.fn().mockReturnValue({
+        module: class MockLoggerModule {},
+        global: true,
+        providers: [
+          {
+            provide: MockLogger,
+            useValue: mockNestJSPinoLogger,
+          }
+        ],
+        exports: [MockLogger]
+      }),
+      forRootAsync: jest.fn().mockImplementation((options) => {
+        return {
+          module: class MockLoggerModule {},
+          imports: options.imports || [],
+          global: true,
+          providers: [
+            {
+              provide: MockLogger,
+              useValue: mockNestJSPinoLogger,
+            }
+          ],
+          exports: [MockLogger],
+          inject: options.inject || []
+        };
+      })
+    }
+  };
+});
+
+// Export for test assertions
+const mockNestJSPinoLogger = jest.requireMock('nestjs-pino').LoggerModule.forRoot().providers[0].useValue;
 
 @Injectable()
 class ChainTestService {
@@ -148,7 +173,9 @@ describe('ContextLogger E2E', () => {
   });
 
   afterEach(async () => {
-    await app.close();
+    if (app) {
+      await app.close();
+    }
   });
 
   it('should properly log request with enriched context', async () => {
@@ -159,7 +186,7 @@ describe('ContextLogger E2E', () => {
 
     expect(response.body).toEqual({ success: true });
     
-    expect(mockLogger.log).toHaveBeenCalledWith(
+    expect(mockNestJSPinoLogger.log).toHaveBeenCalledWith(
       expect.objectContaining({
         environment: 'test',
         requestMethod: 'GET',
@@ -177,7 +204,7 @@ describe('ContextLogger E2E', () => {
       .set('X-Trace-ID', 'trace-123')
       .expect(200);
 
-    const logCalls = mockLogger.log.mock.calls;
+    const logCalls = mockNestJSPinoLogger.log.mock.calls;
     const expectedCorrelationId = logCalls[0][0].correlationId;
     expect(logCalls).toHaveLength(3);
     expect(logCalls[0]).toMatchObject([
@@ -237,7 +264,7 @@ describe('ContextLogger E2E', () => {
     ]);
 
     // Assert
-    const logCalls = mockLogger.log.mock.calls;
+    const logCalls = mockNestJSPinoLogger.log.mock.calls;
     // Ensure 1 log per request
     expect(logCalls).toHaveLength(3);
     // Ensure all correlationIds are different
@@ -333,7 +360,7 @@ describe('ContextLogger E2E', () => {
   
         expect(response.body).toEqual({ success: true });
         
-        expect(mockLogger.log.mock.calls[0]).toMatchObject([
+        expect(mockNestJSPinoLogger.log.mock.calls[0]).toMatchObject([
           {
             correlationId: expect.any(String),
             requestMethod: "GET",
@@ -371,7 +398,7 @@ describe('ContextLogger E2E', () => {
   
         expect(response.body).toEqual({ success: true });
         
-        expect(mockLogger.log.mock.calls[0]).toMatchObject([
+        expect(mockNestJSPinoLogger.log.mock.calls[0]).toMatchObject([
           {
             correlationId: expect.any(String),
             requestMethod: "GET",
@@ -386,4 +413,3 @@ describe('ContextLogger E2E', () => {
     });
   });
 });
-

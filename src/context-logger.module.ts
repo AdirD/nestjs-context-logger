@@ -8,12 +8,41 @@ import {
 import { LoggerModule, Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { RequestInterceptor } from './interceptors/request.interceptor';
 import { InitContextMiddleware } from './middlewares/context.middleware';
-import { ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
 import { ContextLogger } from './context-logger';
 import pino from 'pino';
 import { APP_INTERCEPTOR } from '@nestjs/core';
+import { ContextLoggerAsyncOptions, ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
 
-@Module({})
+const DEFAULT_PINO_CONFIG = {
+  renameContext: 'service',
+  pinoHttp: {
+    autoLogging: false,
+    logger: pino({
+      level: 'info',
+      formatters: {
+        level: (label) => ({ level: label }),
+      },
+    }),
+  },
+  exclude: [],
+};
+
+@Module({
+  imports: [LoggerModule.forRoot(DEFAULT_PINO_CONFIG)],
+  providers: [
+    {
+      provide: 'CONTEXT_LOGGER_OPTIONS',
+      useValue: {} as ContextLoggerFactoryOptions,
+    },
+    InitContextMiddleware,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RequestInterceptor,
+    },
+    ContextLogger,
+  ],
+  exports: [ContextLogger],
+})
 export class ContextLoggerModule implements NestModule {
   constructor(
     @Inject('CONTEXT_LOGGER_OPTIONS')
@@ -80,13 +109,7 @@ export class ContextLoggerModule implements NestModule {
     };
   }
 
-  static forRootAsync(options: {
-    imports?: any[];
-    useFactory: (
-      ...args: any[]
-    ) => Promise<ContextLoggerFactoryOptions> | ContextLoggerFactoryOptions;
-    inject?: any[];
-  }): DynamicModule {
+  static forRootAsync(options: ContextLoggerAsyncOptions): DynamicModule {
     const optionsProvider = {
       provide: 'CONTEXT_LOGGER_OPTIONS',
       useFactory: options.useFactory,
@@ -96,6 +119,7 @@ export class ContextLoggerModule implements NestModule {
     return {
       module: ContextLoggerModule,
       imports: [
+        ...(options.imports || []),
         LoggerModule.forRootAsync({
           imports: options.imports || [],
           useFactory: async (...args: any[]) => {
