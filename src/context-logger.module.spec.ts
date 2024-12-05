@@ -1,18 +1,3 @@
-const mockConfigService = {
-  get: jest.fn()
-};
-
-jest.mock('@nestjs/config', () => ({
-  ConfigModule: {
-    forRoot: jest.fn().mockReturnValue({
-      module: class MockConfigModule {},
-      global: true
-    }),
-  },
-  ConfigService: jest.fn()
-}));
-
-
 const mockLogger = {
   log: jest.fn(),
   error: jest.fn(),
@@ -65,8 +50,42 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ContextLoggerModule } from './context-logger.module';
 import { InitContextMiddleware } from './middlewares/context.middleware';
 import { LoggerModule, Logger as NestJSPinoLogger } from 'nestjs-pino';
-import { Provider } from '@nestjs/common';
+import { Injectable, Provider } from '@nestjs/common';
 import { ContextLogger } from './context-logger';
+import { Module } from '@nestjs/common';
+
+@Injectable()
+export class MockService {
+  getExcludePaths() {
+    return ['/health', '/metrics'];
+  }
+  
+  getLogLevel() {
+    return 'debug';
+  }
+}
+
+@Module({
+  providers: [MockService],
+  exports: [MockService]
+})
+export class MockModule {}
+
+@Injectable()
+export class CircularService {
+  constructor(private readonly mockService: MockService) {}
+  
+  getLogLevel() {
+    return this.mockService.getLogLevel();
+  }
+}
+
+@Module({
+  imports: [MockModule],
+  providers: [CircularService],
+  exports: [CircularService]
+})
+export class CircularModule {}
 
 
 describe('ContextLoggerModule', () => {
@@ -78,7 +97,6 @@ describe('ContextLoggerModule', () => {
       exclude: jest.fn().mockReturnThis(),
       forRoutes: jest.fn().mockReturnThis(),
     };
-    mockConfigService.get.mockReset();
   });
 
   afterEach(() => {
@@ -259,6 +277,44 @@ describe('ContextLoggerModule', () => {
       expect(asyncModule.providers.some((p: Provider) => 
         typeof p === 'object' && p?.provide === 'APP_INTERCEPTOR'
       )).toBe(true);
+    });
+  });
+
+  describe('Dependency Injection', () => {
+    it('should accept service injections in forRootAsync', async () => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRootAsync({
+            imports: [MockModule],
+            inject: [MockService],
+            useFactory: (service: MockService) => ({
+              logLevel: 'debug',
+              exclude: service.getExcludePaths()
+            })
+          })
+        ]
+      }).compile();
+
+      const contextLogger = moduleRef.get(ContextLogger);
+      expect(contextLogger).toBeDefined();
+      expect(LoggerModule.forRootAsync).toHaveBeenCalled();
+    });
+
+    it('should handle circular dependencies', async () => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRootAsync({
+            imports: [CircularModule],
+            inject: [CircularService],
+            useFactory: (service) => ({
+              logLevel: service.getLogLevel()
+            })
+          })
+        ]
+      }).compile();
+
+      expect(moduleRef.get(ContextLogger)).toBeDefined();
+      expect(LoggerModule.forRootAsync).toHaveBeenCalled();
     });
   });
 });
