@@ -59,6 +59,9 @@ export class ContextLogger {
       if (bindings) {
         Object.assign(context, bindings);
       }
+      // Bootstrapping logs
+    } else if (typeof errorOrBindings === 'string') {
+      context.err = errorOrBindings;
     } else if (errorOrBindings) {
       Object.assign(context, errorOrBindings);
     }
@@ -66,8 +69,14 @@ export class ContextLogger {
   }
 
   private callInternalLogger(level: string, message: string, bindings: Bindings) {
-    const logObject = { ...bindings, ...ContextStore.getContext() };
-    // TODO: explain fallback logger, lifecycle of pino is not enough to cover all cases of startup logs
+    let logObject: Record<string, any>;
+    if (typeof bindings === 'string') {
+      // Bootstrapping logs
+      logObject = { component: bindings };
+    } else {
+      // Normal request log
+      logObject = { ...bindings, ...ContextStore.getContext() };
+    }
     const logger = ContextLogger.internalLogger ?? this.fallbackLogger;
     return logger[level](logObject, ...[message, this.moduleName]);
   }

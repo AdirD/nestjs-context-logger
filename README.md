@@ -436,6 +436,47 @@ Context can be lost in several scenarios:
 setTimeout(() => {
   logger.info('Task done');  // No context available
 }, 1000);
+
+```
+### Q: Why do my bootstrap logs look different than request logs?
+
+During application startup, you might notice logs without context that look like this:
+```
+[Nest] 12345  - 12/08/2024, 2:43:09 PM     LOG [RouterExplorer] Mapped {/api/users, GET} route +0ms
+[Nest] 12345  - 12/08/2024, 2:43:09 PM     LOG [RouterExplorer] Mapped {/api/users/:id, POST} route +0ms
+[Nest] 12345  - 12/08/2024, 2:43:09 PM     LOG [RoutesResolver] UserController {/api/users}: +0ms
+```
+
+Instead of your normal contextual logs that look like this:
+```json
+{
+  "level": "info",
+  "time": "2024-12-08T14:43:09.123Z",
+  "correlationId": "abc-123",
+  "service": "UserService",
+  "message": "Processing user request"
+}
+```
+
+This happens because the NestJS bootstrap process is asynchronous:
+1. Application starts & immediately begins logging
+2. Modules initialize asynchronously, including ContextLoggerModule
+3. Some logs will occur before ContextLoggerModule has a chance to set up its Pino instance
+4. These early logs fall back to the default NestJS logger
+
+These bootstrap logs are internal NestJS core component logs that happen during application setup - they don't need request context because there are no requests yet, and that it normal. However, if you want to pipe everything through a single logging system for consistency, you can do this:
+
+```typescript
+async function bootstrap() {
+  const bootstrapLogger = new ContextLogger('Bootstrap');
+  
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    logger: bootstrapLogger
+  });
+
+  await app.listen(3000);
+}
 ```
 
 
