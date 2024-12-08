@@ -304,13 +304,130 @@ It's worth noting that `nestjs-pino` already uses local storage [under the hood]
 Our benchmarks showed a 20-40% increase compared to raw Pino, such that if Pino average is 114ms, then with ALS it's up to 136.8ms. This is a notable overhead, but still significantly faster than Winston or Bunyan. For reference, see Pino's [benchmarks](https://github.com/pinojs/pino/blob/main/docs/benchmarks.md).
 
 While you should consider this overhead for your own application, do remember that the logging is non-blocking, and should not impact service latency, while the benefits of having context in your logs is a game changer.
+You're right. Let me reorganize the FAQ to flow better, starting with potential issues, then explaining the ALS isolation mechanism, and finishing with Pino integration.
 
-## Resources (Coming Soon)
+# FAQ for nestjs-context-logger
 
-- 📘 Documentation
-- 🎓 Best Practices Guide
-- 📊 Performance Benchmarks
-- 🔧 Configuration Guide
+### Q: How does AsyncLocalStorage isolation work?
+
+When you create a new AsyncLocalStorage instance, Node.js creates an isolated storage space:
+
+```typescript
+// Each new instance gets its own isolated storage space
+const store1 = new AsyncLocalStorage<Record<string, any>>();
+const store2 = new AsyncLocalStorage<Record<string, any>>();
+```
+
+This isolation is maintained at the Node.js runtime level, so when nestjs-context-logger creates its instance:
+```typescript
+// Inside nestjs-context-logger package
+const globalStore = new AsyncLocalStorage<Record<string, any>>();
+```
+
+It's automatically isolated from any other ALS instances in:
+- Your application code
+- Other libraries (like nestjs-pino)
+- Other parts of your system
+
+This is why multiple packages can use ALS without conflict:
+```typescript
+// All of these work independently
+yourAppStore.run({ tenant: 'abc' }, () => {
+  pinoStore.run({ pid: 123 }, () => {
+    contextLoggerStore.run({ userId: '456' }, () => {
+      // Each store only sees its own context
+    });
+  });
+});
+```
+
+### Q: How and when does AsyncLocalStorage clean up context?
+
+ALS automatically cleans up when the execution context exits:
+
+```typescript
+// When this completes, context is eligible for garbage collection
+ContextLogger.runWithCtx(async () => {
+  await handleRequest();
+  // After this, context is cleaned up
+});
+```
+
+This happens:
+- At the end of each request
+- If an error occurs (context still gets cleaned up)
+- When all async operations in the chain complete
+- Even if you forget to clean up manually
+
+### Q: How does nestjs-context-logger integrate with Pino?
+
+nestjs-context-logger uses nestjs-pino under the hood, adding context management:
+
+```typescript
+@Module({
+  imports: [
+    ContextLoggerModule.forRoot({
+      // Regular Pino options
+      pinoHttp: {
+        level: 'info',
+        transport: {
+          target: 'pino-pretty'
+        }
+      }
+    })
+  ]
+})
+```
+
+The integration:
+1. Uses Pino's high-performance logging engine
+2. Preserves all Pino formatting and transport options
+3. Adds context management through ALS
+4. Automatically merges context into Pino's log output
+
+Your logs get both Pino's performance and rich context:
+```typescript
+logger.info('User updated');
+// Output includes both Pino's standard fields and your context:
+// {
+//   "level": "info",
+//   "time": "2024-...",      // From Pino
+//   "pid": 123,              // From Pino
+//   "correlationId": "abc",  // From context-logger
+//   "userId": "456",         // From your context
+//   "message": "User updated"
+// }
+```
+
+### Q: Can context be unavailable or lost?
+
+Context can be lost in several scenarios:
+
+1. Before ContextLoggerModule initialization:
+```typescript
+@Module({
+  imports: [
+    // ❌ Too early - logger not initialized yet
+    OtherModule.forRoot({ 
+      onModuleInit() {
+        logger.info('Starting up');
+      }
+    }),
+    
+    // Logger module initialized after
+    ContextLoggerModule.forRoot()
+  ]
+})
+```
+
+2. In background operations or timers:
+```typescript
+// ❌ Context lost - new execution context
+setTimeout(() => {
+  logger.info('Task done');  // No context available
+}, 1000);
+```
+
 
 ## Contributing
 
