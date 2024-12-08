@@ -1,14 +1,24 @@
-# nestjs-context-logger
 <p align="center">
   <a href="https://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
 </p>
-<p align="center">🌟 Request-scoped context logger for NestJS
-<p align="center">
-  <a href="https://www.npmjs.com/package/nestjs-context-logger" target="_blank"><img src="https://img.shields.io/npm/v/nestjs-context-logger" alt="NPM Version" /></a>
-  <a href="https://www.npmjs.com/package/nestjs-context-logger" target="_blank"><img src="https://img.shields.io/npm/l/nestjs-context-logger" alt="Package License" /></a>
-  <a href="https://www.npmjs.com/package/nestjs-context-logger" target="_blank"><img src="https://img.shields.io/npm/dm/nestjs-context-logger" alt="NPM Downloads" /></a>
-  <a href="https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008" target="_blank"><img src="https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium" alt="Medium Article" /></a>
-</p>
+<div align="center">
+<h1 style="font-size: 2em;">NestJS Context Logger</h1>
+
+[![npm version](https://badge.fury.io/js/nestjs-context-logger.svg)](https://badge.fury.io/js/nestjs-context-logger)
+<a href="https://www.npmjs.com/package/nestjs-context-logger" target="_blank"><img src="https://img.shields.io/npm/dm/nestjs-context-logger" alt="NPM Downloads" /></a>
+<a href="https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008" target="_blank"><img src="https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium" alt="Medium Article" /></a>
+[![License](https://img.shields.io/npm/l/nestjs-context-logger)](https://opensource.org/licenses/MIT)
+
+🌟 A contextual logger for NestJS applications. 🌟
+Enrich your logs with custom context, whenever and wherever you want in your request lifecycle.
+
+[Quick Start](#quick-start) •
+[API Reference](#api-reference) •
+[Best Practices](#best-practices) •
+[FAQ](#faq) •
+[Contributing](#contributing) •
+[License](#license)
+</div>
 
 
 > 🔍 Ever tried debugging a production issue with logs like `"Error updating user"` but no context about which user, service, or request caused it? **This logger is your solution.** 
