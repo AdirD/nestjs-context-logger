@@ -130,4 +130,52 @@ describe('ContextLogger', () => {
       expect(spyUpdateContext).toHaveBeenCalledWith(newContext);
     });
   });
+
+  describe('bootstrap and fallback logger behavior', () => {
+    const MODULE_NAME = 'BootstrapTest';
+    let contextLogger: ContextLogger;
+    let fallbackLoggerSpy: jest.SpyInstance;
+
+    beforeEach(() => {
+      // Reset the internal logger to simulate bootstrap phase
+      (ContextLogger as any).internalLogger = null;
+      contextLogger = new ContextLogger(MODULE_NAME);
+      fallbackLoggerSpy = jest.spyOn(contextLogger['fallbackLogger'], 'log');
+    });
+
+    afterEach(() => {
+      fallbackLoggerSpy.mockRestore();
+      ContextLogger.init(mockLogger as any);
+    });
+
+    it('should handle bootstrap component logs with string bindings', () => {
+      const message = 'Mapped {/api/users, GET} route';
+      const component = 'RouterExplorer';
+        
+      // @ts-expect-error - Simulate bootstrap phase
+      contextLogger.log(message, component);
+
+      expect(fallbackLoggerSpy).toHaveBeenCalledWith(
+        { component }, 
+        message,
+        MODULE_NAME
+      );
+    });
+
+    it('should handle regular bindings after bootstrap', () => {
+      const message = 'Regular log';
+      const bindings = { someBinding: 'value' };
+        
+      // Initialize logger to exit bootstrap phase
+      ContextLogger.init(mockLogger as any);
+        
+      contextLogger.log(message, bindings);
+        
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        { ...bindings, ...CONTEXT },
+        message,
+        MODULE_NAME
+      );
+    });
+  });
 });
