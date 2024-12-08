@@ -479,6 +479,93 @@ async function bootstrap() {
 }
 ```
 
+## Testing
+To mock logs for testing, we recommend automatically mocking the entire ContextLogger for all tests. You can achieve this by following these steps:
+
+1. Create a Jest setup file:
+
+```typescript
+// jest/setupFile.ts
+import 'jest-expect-message';
+
+class MockContextLogger {
+  public log() {
+    return jest.fn();
+  }
+  public debug() {
+    return jest.fn();
+  }
+  public warn() {
+    return jest.fn();
+  }
+  public error() {
+    return jest.fn();
+  }
+  public static getContext() {
+    return {};
+  }
+  public static updateContext() {
+    return jest.fn();
+  }
+}
+
+jest.mock('nestjs-context-logger', () => {
+  return { ContextLogger: MockContextLogger };
+});
+```
+
+2. Configure Jest to use this setup file:
+```json
+// package.json
+{
+  "jest": {
+    "setupFilesAfterEnv": [
+      "jest-expect-message",
+      "<rootDir>/../jest/setupFile.ts"
+    ]
+  }
+}
+```
+
+3. Spy on the mocked `ContextLogger`
+
+Now you can easily test logging in your services using spies:
+
+```typescript
+import { ContextLogger } from 'nestjs-context-logger';
+import { UserService } from './user.service';
+
+describe('UserService', () => {
+  let service: UserService;
+  let logErrorSpy: jest.SpyInstance;
+  let logInfoSpy: jest.SpyInstance;
+
+  beforeEach(async () => {
+    logErrorSpy = jest.spyOn(ContextLogger.prototype, 'error');
+    logInfoSpy = jest.spyOn(ContextLogger.prototype, 'info');
+    service = new UserService();
+  });
+
+  it('should log user creation', async () => {
+    await service.createUser({ email: 'test@example.com' });
+
+    expect(logInfoSpy).toHaveBeenCalledWith(
+      'User created',
+      expect.objectContaining({ email: 'test@example.com' })
+    );
+  });
+
+  it('should log errors', async () => {
+    const error = new Error('Database error');
+    await service.handleError(error);
+
+    expect(logErrorSpy).toHaveBeenCalledWith(
+      'Operation failed',
+      error
+    );
+  });
+});
+```
 
 ## Contributing
 
