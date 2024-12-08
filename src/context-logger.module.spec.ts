@@ -109,7 +109,9 @@ describe('ContextLoggerModule', () => {
         imports: [
           ContextLoggerModule.forRoot({
             exclude: ['/health'],
-            logLevel: 'debug'
+            pinoHttp: {
+              level: 'debug'
+            }
           })
         ],
       }).compile();
@@ -122,9 +124,7 @@ describe('ContextLoggerModule', () => {
       expect(LoggerModule.forRoot).toHaveBeenCalledWith(
         expect.objectContaining({
           pinoHttp: expect.objectContaining({
-            logger: expect.objectContaining({
-              level: 'debug'
-            })
+            level: 'debug'
           })
         })
       );
@@ -142,10 +142,37 @@ describe('ContextLoggerModule', () => {
       expect(LoggerModule.forRoot).toHaveBeenCalledWith(
         expect.objectContaining({
           pinoHttp: expect.objectContaining({
-            logger: expect.objectContaining({
-              level: 'info'
-            })
+            level: 'info'
           })
+        })
+      );
+    });
+
+    it('should override default values when options are provided', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRoot({
+            pinoHttp: {
+              level: 'debug',
+              autoLogging: true,
+            },
+            useExisting: true,
+            renameContext: 'other'
+          })
+        ]
+      }).compile();
+    
+      const contextLoggerModule = module.get(ContextLoggerModule);
+      contextLoggerModule.configure(consumer);
+    
+      expect(LoggerModule.forRoot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pinoHttp: expect.objectContaining({
+            level: 'debug',
+            autoLogging: true,
+          }),
+          useExisting: true,
+          renameContext: 'other'
         })
       );
     });
@@ -217,19 +244,6 @@ describe('ContextLoggerModule', () => {
   });
 
   describe('module behavior', () => {
-    it('should work with direct module import', async () => {
-      const module: TestingModule = await Test.createTestingModule({
-        imports: [ContextLoggerModule]
-      }).compile();
-  
-      const contextLoggerModule = module.get(ContextLoggerModule);
-      contextLoggerModule.configure(consumer);
-  
-      expect(consumer.apply).toHaveBeenCalledWith(InitContextMiddleware);
-      expect(consumer.exclude).toHaveBeenCalledWith();
-      expect(contextLoggerModule).toBeDefined();
-    });
-  
     it('should make the module global', async () => {
       const syncModule = ContextLoggerModule.forRoot();
       const asyncModule = ContextLoggerModule.forRootAsync({
@@ -307,7 +321,9 @@ describe('ContextLoggerModule', () => {
             imports: [CircularModule],
             inject: [CircularService],
             useFactory: (service) => ({
-              logLevel: service.getLogLevel()
+              pinoHttp: {
+                level: service.getLogLevel()
+              }
             })
           })
         ]

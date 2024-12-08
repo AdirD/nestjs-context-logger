@@ -53,7 +53,7 @@ import { ContextLoggerModule } from 'nestjs-context-logger';
 
 @Module({
   imports: [
-    ContextLoggerModule
+    ContextLoggerModule.forRoot()
   ],
 })
 export class AppModule {}
@@ -84,7 +84,9 @@ You can enrich your logs with custom context at the application level:
         imports: [ConfigModule],
         inject: [ConfigService],
         useFactory: (configService: ConfigService) => ({
-            logLevel: configService.get('LOG_LEVEL'),
+          pinoHttp: {
+            level: configService.get('LOG_LEVEL'),
+          },
             // enrichContext intercepts requests and allows you to enrich the context
             enrichContext: async (context: ExecutionContext) => ({
                 userId: context.switchToHttp().getRequest().user?.id,

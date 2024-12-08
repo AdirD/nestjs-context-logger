@@ -9,40 +9,10 @@ import { LoggerModule, Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { RequestInterceptor } from './interceptors/request.interceptor';
 import { InitContextMiddleware } from './middlewares/context.middleware';
 import { ContextLogger } from './context-logger';
-import pino from 'pino';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ContextLoggerAsyncOptions, ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
 
-const DEFAULT_PINO_CONFIG = {
-  renameContext: 'service',
-  pinoHttp: {
-    autoLogging: false,
-    logger: pino({
-      level: 'info',
-      formatters: {
-        level: (label) => ({ level: label }),
-      },
-    }),
-  },
-  exclude: [],
-};
-
-@Module({
-  imports: [LoggerModule.forRoot(DEFAULT_PINO_CONFIG)],
-  providers: [
-    {
-      provide: 'CONTEXT_LOGGER_OPTIONS',
-      useValue: {} as ContextLoggerFactoryOptions,
-    },
-    InitContextMiddleware,
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: RequestInterceptor,
-    },
-    ContextLogger,
-  ],
-  exports: [ContextLogger],
-})
+@Module({})
 export class ContextLoggerModule implements NestModule {
   constructor(
     @Inject('CONTEXT_LOGGER_OPTIONS')
@@ -63,18 +33,15 @@ export class ContextLoggerModule implements NestModule {
   }
 
   private static createPinoConfig(options: ContextLoggerFactoryOptions) {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { enrichContext, ...pinoOptions } = options;
     return {
-      renameContext: 'service',
       pinoHttp: {
         autoLogging: false,
-        logger: pino({
-          level: options.logLevel || 'info',
-          formatters: {
-            level: (label) => ({ level: label }),
-          },
-        }),
+        level: 'info',
+        ...pinoOptions.pinoHttp
       },
-      exclude: options.exclude || [],
+      ...pinoOptions
     };
   }
 
@@ -112,7 +79,10 @@ export class ContextLoggerModule implements NestModule {
   static forRootAsync(options: ContextLoggerAsyncOptions): DynamicModule {
     const optionsProvider = {
       provide: 'CONTEXT_LOGGER_OPTIONS',
-      useFactory: options.useFactory,
+      useFactory: async (...args: any[]) => {
+        const config = await options.useFactory(...args);
+        return config;
+      },
       inject: options.inject || [],
     };
 

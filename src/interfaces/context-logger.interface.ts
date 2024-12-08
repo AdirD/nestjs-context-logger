@@ -1,10 +1,7 @@
 import { ExecutionContext, ModuleMetadata } from '@nestjs/common';
+import { Params } from 'nestjs-pino';
 
-export interface ContextLoggerFactoryOptions {
-  /**
-   * Array of endpoints that should not be logged, e.g. ['/health', '/metrics']
-   */
-  exclude?: string[];
+export interface ContextLoggerFactoryOptions extends Params {
 
   /**
    * Custom context enricher function that can be used to add custom context to the log.
@@ -17,10 +14,6 @@ export interface ContextLoggerFactoryOptions {
     context: ExecutionContext
   ) => Record<string, any> | Promise<Record<string, any>>;
 
-  /**
-   * Log level for the logger, defaults to 'info'
-   */
-  logLevel?: 'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'trace';
 }
 
 export interface ContextLoggerAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
