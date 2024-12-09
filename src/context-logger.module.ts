@@ -32,16 +32,17 @@ export class ContextLoggerModule implements NestModule {
       .forRoutes('*');
   }
 
-  private static createPinoConfig(options: ContextLoggerFactoryOptions) {
+  private static createPinoConfig(options: ContextLoggerFactoryOptions): ContextLoggerFactoryOptions {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { enrichContext, ...pinoOptions } = options;
+    const { enrichContext, pinoHttp = {}, ...restOptions } = options;
+    
     return {
+      ...restOptions,
       pinoHttp: {
         autoLogging: false,
         level: 'info',
-        ...pinoOptions.pinoHttp
-      },
-      ...pinoOptions
+        ...pinoHttp
+      }
     };
   }
 

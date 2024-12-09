@@ -130,7 +130,7 @@ describe('ContextLoggerModule', () => {
       );
     });
 
-    it('should use default values when no options provided', async () => {
+    it('forRoot - should use default values when no options provided', async () => {
       const module: TestingModule = await Test.createTestingModule({
         imports: [ContextLoggerModule.forRoot()]
       }).compile();
@@ -142,10 +142,99 @@ describe('ContextLoggerModule', () => {
       expect(LoggerModule.forRoot).toHaveBeenCalledWith(
         expect.objectContaining({
           pinoHttp: expect.objectContaining({
-            level: 'info'
+            level: 'info',
+            autoLogging: false,
           })
         })
       );
+    });
+
+    it('forRootAsync - should use default values when no options provided', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRootAsync({
+            useFactory: async () => ({})
+          })
+        ]
+      }).compile();
+    
+      const contextLoggerModule = module.get(ContextLoggerModule);
+      contextLoggerModule.configure(consumer);
+    
+      expect(consumer.exclude).toHaveBeenCalledWith();
+      expect(LoggerModule.forRootAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          useFactory: expect.any(Function),
+          imports: [],
+          inject: [],
+        })
+      );
+    
+      // Get and execute the factory to verify its output
+      const factory = (LoggerModule.forRootAsync as jest.Mock).mock.calls[0][0].useFactory;
+      const config = await factory();
+      expect(config).toEqual({
+        pinoHttp: {
+          level: 'info',
+          autoLogging: false,
+        }
+      });
+    });
+
+    describe('createPinoConfig', () => {
+      // Access the private function
+      type PrivateContextLogger = {
+        createPinoConfig: typeof ContextLoggerModule['createPinoConfig']
+      };
+      const { createPinoConfig } = ContextLoggerModule as unknown as PrivateContextLogger;
+    
+      it('should return default config when empty options provided', () => {
+        const result = createPinoConfig({});
+        
+        expect(result).toEqual({
+          pinoHttp: {
+            autoLogging: false,
+            level: 'info'
+          }
+        });
+      });
+  
+      it('should merge pinoHttp options with defaults', () => {
+        const options = {
+          pinoHttp: {
+            level: 'debug',
+            customKey: 'value'
+          }
+        };
+  
+        const result = createPinoConfig(options);
+  
+        expect(result).toEqual({
+          pinoHttp: {
+            autoLogging: false,  // default preserved
+            level: 'debug',      // overridden
+            customKey: 'value'   // new value added
+          }
+        });
+      });
+  
+      it('should allow overriding default pinoHttp values', () => {
+        const options = {
+          pinoHttp: {
+            autoLogging: true,
+            level: 'error'
+          }
+        };
+  
+        const result = createPinoConfig(options);
+  
+        expect(result).toEqual({
+          pinoHttp: {
+            autoLogging: true,
+            level: 'error'
+          }
+        });
+      });
     });
 
     it('should override default values when options are provided', async () => {
