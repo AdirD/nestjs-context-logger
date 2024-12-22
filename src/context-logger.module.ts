@@ -17,12 +17,7 @@ export class ContextLoggerModule implements NestModule {
   constructor(
     @Inject('CONTEXT_LOGGER_OPTIONS')
     private readonly options: ContextLoggerFactoryOptions,
-    private readonly nestJSPinoLogger: NestJSPinoLogger
   ) {}
-
-  onModuleInit() {
-    ContextLogger.init(this.nestJSPinoLogger);
-  }
 
   configure(consumer: MiddlewareConsumer) {
     const excludePatterns = this.options.exclude || [];
@@ -56,6 +51,14 @@ export class ContextLoggerModule implements NestModule {
         {
           provide: APP_INTERCEPTOR,
           useClass: RequestInterceptor,
+        },
+        {
+          provide: 'CONTEXT_LOGGER_INIT',
+          useFactory: async (logger: NestJSPinoLogger) => {
+            await ContextLogger.init(logger);
+            return true;
+          },
+          inject: [NestJSPinoLogger]
         },
         ContextLogger,
       ],
