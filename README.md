@@ -23,8 +23,8 @@ Enrich your logs with custom context, whenever and wherever you want in your req
 
 > 🔍 Ever tried debugging a production issue with logs like `"Error updating user"` but no context about which user, service, or request caused it? **This logger is your solution.** 
 
-## [nestjs-context-logger](https://github.com/AdirD/nestjs-context-logger)
-is a contextual logging solution for NestJS applications that enables you to enrich your logs with custom context, whenever and wherever you want in NestJS request execution lifecycle.
+# Overview
+nestjs-context-logger is a structured, contextual, logging solution for NestJS applications that enables you to enrich your logs with custom context, whenever and wherever you want in NestJS request execution lifecycle.
 
 
 ```typescript
@@ -49,13 +49,13 @@ logger.error('Failed to update user subscription');
 
 
 
-## Installation
+# Installation
 
 ```bash
 npm install nestjs-context-logger
 ```
 
-## Quick Start
+# Quick Start
 
 ```typescript
 // app.module.ts
@@ -72,7 +72,7 @@ export class AppModule {}
 That's it! Your logs will automatically include the default context of `correlationId` and `duration`.
 
 
-## Why nestjs-context-logger?
+# Why nestjs-context-logger?
 [![Medium Article](https://img.shields.io/badge/Medium-Read%20Article-black?logo=medium)](https://medium.com/elementor-engineers/implement-contextual-logging-in-nestjs-using-asyncstorage-eb228bf00008)
 - 🎯 **Developer experience**: Easy to use, zero code changes required, keep using the familiar `@nestjs/common` logger interface.
 - ⚡ **High Performance**: Built on Pino, one of the fastest loggers in the Node.js ecosystem
@@ -81,9 +81,9 @@ That's it! Your logs will automatically include the default context of `correlat
 - ✅ **Automatic context cleanup**: Memory is cleaned up and garbage collected when request cycle ends
 
 
-## Advanced Configuration
+# Advanced Configuration
 
-### Automatic context enrichment via configuration
+## Automatic context enrichment via configuration
 
 You can enrich your logs with custom context at the application level:
 
@@ -121,7 +121,7 @@ Now every log will include these additional fields:
 // }
 ```
 
-### Add custom context from anywhere
+## Add custom context from anywhere
 Update context from anywhere in the code 🎉. The context persists throughout the entire request execution, making it available to all services and handlers within that request.
 
 For example, set up user context in a guard:
@@ -181,16 +181,16 @@ export class FeatureService {
 
 ---
 
-## How does it work?
+# How does it work?
 
 Under the hood, `nestjs-context-logger` leverages Node.js's `AsyncLocalStorage` to maintain isolated context for each request.
 
-### Storage Layer
+## Storage Layer
 - Uses Node.js's built-in `AsyncLocalStorage` for context isolation
 - Each request gets its own isolated storage "bucket" that persists throughout the entire request lifecycle
 - The storage is tied to the Node.js event loop and automatically cleans up when the request ends
 
-### Request Lifecycle
+## Request Lifecycle
 1. **Context Initialization**
    - The `InitContextMiddleware` creates a new storage scope for each incoming request with a generated `correlationId`
 
@@ -231,37 +231,37 @@ flowchart TB
     style mem fill:#e6ffe6
 ```
 
-### Memory Management
+## Memory Management
 - Context is stored in memory only for the duration of the request
 - **Automatic garbage collection when request ends (no memory leaks)**
 - Each request's context is completely isolated from others
 - No cross-request contamination, even under high concurrency
 
 
-## Features in Depth
+# Features in Depth
 
-### 🔄 Automatic Context Injection
+## 🔄 Automatic Context Injection
 - Correlation ID
 - Service Name
 - Request Duration
 - Name, Host, PID
 
-### 🎯 Developer Experience
+## 🎯 Developer Experience
 - Typed Logger (Finally!)
 - Familiar NestJS logger interface (Same as `@nestjs/common` default experience)
 - Context Isolation via middleware
 - Global Request Interceptor for enriching context 
 
-### ⚡ Performance
+## ⚡ Performance
 - Built on [Pino](https://github.com/pinojs/pino) for high-performance logging
 - Efficient context storage with `async_hooks` [AsyncLocalStorage](https://nodejs.org/api/async_hooks.html)
 - Minimal overhead compared to standard logging
 
-### 🔌 Integration Support (Platform Agnostic)
+## 🔌 Integration Support (Platform Agnostic)
 - [Fastify](https://fastify.dev/) compatible
 - [Express](https://expressjs.com/) compatible
 
-## Configuration Options
+# Configuration Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
@@ -269,10 +269,10 @@ flowchart TB
 | `enrichContext` | Function | ```{ duration }``` | Custom context provider |
 | `exclude` | string[] | [] | Endpoints to exclude from logging |
 
-## API Reference
+# API Reference
 
 
-## Best Practices
+# Best Practices
 
 1. **Use Semantic Log Levels**
    ```typescript
@@ -306,7 +306,7 @@ flowchart TB
    logger.info('Item fetched id: 1, time: 2000, source: serviceA');
    ```
 
-## Performance Considerations
+# Performance Considerations
 
 This logger uses `AsyncLocalStorage` to maintain context, which does add an overhead.
 It's worth noting that `nestjs-pino` already uses local storage [under the hood](https://github.com/iamolegga/nestjs-pino/blob/01fc6739136bb9c1df0f5669f998bbabd82b2a1a/src/storage.ts#L9) for the "name", "host", "pid" metadata it attaches to every request.
@@ -318,7 +318,7 @@ You're right. Let me reorganize the FAQ to flow better, starting with potential 
 
 # FAQ for nestjs-context-logger
 
-### Q: How does AsyncLocalStorage isolation work?
+## Q: How does AsyncLocalStorage isolation work?
 
 When you create a new AsyncLocalStorage instance, Node.js creates an isolated storage space:
 
@@ -351,7 +351,7 @@ yourAppStore.run({ tenant: 'abc' }, () => {
 });
 ```
 
-### Q: How and when does AsyncLocalStorage clean up context?
+## Q: How and when does AsyncLocalStorage clean up context?
 
 ALS automatically cleans up when the execution context exits:
 
@@ -369,7 +369,7 @@ This happens:
 - When all async operations in the chain complete
 - Even if you forget to clean up manually
 
-### Q: How does nestjs-context-logger integrate with Pino?
+## Q: How does nestjs-context-logger integrate with Pino?
 
 nestjs-context-logger uses nestjs-pino under the hood, adding context management:
 
@@ -409,7 +409,7 @@ logger.info('User updated');
 // }
 ```
 
-### Q: Can context be unavailable or lost?
+## Q: Can context be unavailable or lost?
 
 Context can be lost in several scenarios:
 
@@ -438,7 +438,7 @@ setTimeout(() => {
 }, 1000);
 
 ```
-### Q: Why do my bootstrap logs look different than request logs?
+## Q: Why do my bootstrap logs look different than request logs?
 
 During application startup, you might notice logs without context that look like this:
 ```
@@ -479,7 +479,7 @@ async function bootstrap() {
 }
 ```
 
-## Testing
+# Testing
 To mock logs for testing, we recommend automatically mocking the entire ContextLogger for all tests. You can achieve this by following these steps:
 
 1. Create a Jest setup file:
@@ -567,16 +567,16 @@ describe('UserService', () => {
 });
 ```
 
-## Contributing
+# Contributing
 
 Contributions welcome! Read our [contributing guidelines](CONTRIBUTING.md) to get started.
 
-## Support
+# Support
 
 - 🐛 [Issue Tracker](https://github.com/AdirD/nestjs-context-logger/issues)
 - 💬 [Discussions](https://github.com/AdirD/nestjs-context-logger/discussions)
 
-## License
+# License
 
 MIT
 
