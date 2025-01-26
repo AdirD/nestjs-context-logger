@@ -1,8 +1,16 @@
 import { Logger as NestLogger } from '@nestjs/common';
 import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { ContextStore } from './store/context-store';
+import { omitBy, isNil } from 'lodash';
 
 type Bindings = Record<string, any>;
+
+export interface LogEntry {
+  message: string;
+  logBindings?: Record<string, any>;
+  logContext?: Record<string, any>;
+  err?: Error | string;
+}
 
 export class ContextLogger {
   private static internalLogger: NestJSPinoLogger;
@@ -53,31 +61,48 @@ export class ContextLogger {
   error(message: string, bindings: Bindings): void;
   error(message: string, error: Error, bindings: Bindings): void;
   error(message: string, errorOrBindings?: Error | Bindings, bindings?: Bindings): void {
-    const context: any = {};
+    let error;
+    const adaptedBindings = {};
     if (errorOrBindings instanceof Error) {
-      context.err = errorOrBindings;
+      error = errorOrBindings;
       if (bindings) {
-        Object.assign(context, bindings);
+        Object.assign(adaptedBindings, bindings);
       }
       // Bootstrapping logs
     } else if (typeof errorOrBindings === 'string') {
-      context.err = errorOrBindings;
+      error = errorOrBindings;
     } else if (errorOrBindings) {
-      Object.assign(context, errorOrBindings);
+      Object.assign(adaptedBindings, errorOrBindings);
     }
-    this.callInternalLogger('error', message, context);
+    this.callInternalLogger('error', message, adaptedBindings, error);
   }
 
-  private callInternalLogger(level: string, message: string, bindings: Bindings) {
+  private callInternalLogger(level: string, message: string, bindings: Bindings, error?: Error | string) {
     let logObject: Record<string, any>;
     if (typeof bindings === 'string') {
       // Bootstrapping logs
       logObject = { component: bindings };
     } else {
-      // Normal request log
-      logObject = { ...bindings, ...ContextStore.getContext() };
+      logObject = this.createLogEntry(message, bindings, error);
     }
     const logger = ContextLogger.internalLogger ?? this.fallbackLogger;
     return logger[level](logObject, ...[message, this.moduleName]);
+  }
+
+  private createLogEntry(
+    message: string,
+    bindings?: Record<string, any>,
+    error?: Error | string,
+  ): LogEntry {
+    const logEntry = omitBy(
+      {
+        message,
+        logContext: ContextStore.getContext(),
+        logBindings: bindings,
+        err: error,
+      },
+      isNil,
+    );
+    return logEntry;
   }
 }

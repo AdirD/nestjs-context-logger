@@ -178,4 +178,70 @@ describe('ContextLogger', () => {
       );
     });
   });
+
+  describe('log entry structure', () => {
+    it('should group bindings under logBindings field', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      logger.info('test message', { key: 'value' });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'test message',
+          logBindings: { key: 'value' },
+        }),
+      );
+    });
+
+    it('should group context under logContext field', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+      const contextData = { user: 'john' };
+      
+      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+      logger.info('test message');
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'test message',
+          logContext: contextData,
+        }),
+      );
+    });
+
+    it('should include error under err field', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const error = new Error('test error');
+
+      logger.error('error message', error);
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'error message',
+          err: error,
+        }),
+      );
+    });
+
+    it('should include all fields when available', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+      const error = new Error('test error');
+      const contextData = { user: 'john' };
+      
+      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+      logger.error('error message', error, { operation: 'test' });
+
+      expect(consoleSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: 'error message',
+          logBindings: { operation: 'test' },
+          logContext: contextData,
+          err: error,
+        }),
+      );
+    });
+  });
 });
