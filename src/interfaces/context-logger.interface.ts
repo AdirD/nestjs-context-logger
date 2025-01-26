@@ -3,7 +3,8 @@ import { Params } from 'nestjs-pino';
 
 export interface ContextLoggerFactoryOptions extends Params {
   pinoLogger?: any;
-  structuredLogs?: {
+  groupFields?: {
+    enabled?: boolean;  // If false or not set, spread fields at root level
     bindingsKey?: string;
     contextKey?: string;
   };

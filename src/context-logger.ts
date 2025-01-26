@@ -15,7 +15,8 @@ export interface LogEntry {
 export class ContextLogger {
   private static internalLogger: NestJSPinoLogger;
   private options: ContextLoggerFactoryOptions = {
-    structuredLogs: {
+    groupFields: {
+      enabled: true,
       bindingsKey: 'bindings',
       contextKey: 'context',
     }
@@ -105,18 +106,23 @@ export class ContextLogger {
       ? this.options.contextAdapter(storeContext)
       : storeContext;
 
-    const { bindingsKey = 'logBindings', contextKey = 'logContext' } = 
-      this.options.structuredLogs ?? {};
+    const { enabled = true, bindingsKey = 'bindings', contextKey = 'context' } = 
+      this.options.groupFields ?? {};
 
-    const logEntry = omitBy(
-      {
+    const logEntry = enabled 
+      ? {
         message,
         [contextKey]: adaptedContext,
         [bindingsKey]: bindings,
         err: error,
-      },
-      isNil,
-    );
-    return logEntry;
+      }
+      : {
+        message,
+        ...adaptedContext,
+        ...bindings,
+        err: error,
+      };
+
+    return omitBy(logEntry, isNil);
   }
 }
