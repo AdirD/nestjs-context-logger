@@ -2,6 +2,12 @@ import { ExecutionContext, ModuleMetadata } from '@nestjs/common';
 import { Params } from 'nestjs-pino';
 
 export interface ContextLoggerFactoryOptions extends Params {
+  pinoLogger?: any;
+  structuredLogs?: {
+    bindingsKey?: string;
+    contextKey?: string;
+  };
+  contextAdapter?: (context: Record<string, any>) => Record<string, any>;
 
   /**
    * Custom context enricher function that can be used to add custom context to the log.

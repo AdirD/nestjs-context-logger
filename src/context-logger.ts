@@ -2,18 +2,24 @@ import { Logger as NestLogger } from '@nestjs/common';
 import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { ContextStore } from './store/context-store';
 import { omitBy, isNil } from 'lodash';
+import { ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
 
 type Bindings = Record<string, any>;
 
 export interface LogEntry {
   message: string;
-  logBindings?: Record<string, any>;
-  logContext?: Record<string, any>;
+  [key: string]: any;
   err?: Error | string;
 }
 
 export class ContextLogger {
   private static internalLogger: NestJSPinoLogger;
+  private options: ContextLoggerFactoryOptions = {
+    structuredLogs: {
+      bindingsKey: 'bindings',
+      contextKey: 'context',
+    }
+  };
   private readonly fallbackLogger = new NestLogger();
 
   constructor(private moduleName: string) {}
@@ -94,11 +100,19 @@ export class ContextLogger {
     bindings?: Record<string, any>,
     error?: Error | string,
   ): LogEntry {
+    const storeContext = ContextStore.getContext();
+    const adaptedContext = this.options.contextAdapter 
+      ? this.options.contextAdapter(storeContext)
+      : storeContext;
+
+    const { bindingsKey = 'logBindings', contextKey = 'logContext' } = 
+      this.options.structuredLogs ?? {};
+
     const logEntry = omitBy(
       {
         message,
-        logContext: ContextStore.getContext(),
-        logBindings: bindings,
+        [contextKey]: adaptedContext,
+        [bindingsKey]: bindings,
         err: error,
       },
       isNil,
