@@ -216,7 +216,7 @@ describe('ContextLogger', () => {
     describe('with partial grouping', () => {
       it('should group only bindings when bindingsKey provided', () => {
         const logger = new ContextLogger(MODULE_NAME);
-        logger['options'].groupFields = { bindingsKey: 'params' };
+        ContextLogger.init(mockLogger as any, { groupFields: { bindingsKey: 'params' } });
         const contextData = { user: 'john' };
         
         jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
@@ -234,7 +234,7 @@ describe('ContextLogger', () => {
 
       it('should group only context when contextKey provided', () => {
         const logger = new ContextLogger(MODULE_NAME);
-        logger['options'].groupFields = { contextKey: 'metadata' };
+        ContextLogger.init(mockLogger as any, { groupFields: { contextKey: 'metadata' } });
         const contextData = { user: 'john' };
         
         jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
@@ -254,10 +254,12 @@ describe('ContextLogger', () => {
     describe('with full grouping', () => {
       it('should group both bindings and context under specified keys', () => {
         const logger = new ContextLogger(MODULE_NAME);
-        logger['options'].groupFields = {
-          bindingsKey: 'params',
-          contextKey: 'metadata'
-        };
+        ContextLogger.init(mockLogger as any, {
+          groupFields: {
+            bindingsKey: 'params',
+            contextKey: 'metadata'
+          }
+        });
         
         const contextData = { user: 'john' };
         jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
@@ -278,9 +280,11 @@ describe('ContextLogger', () => {
   describe('context adaptation', () => {
     it('should adapt context when adapter is provided', () => {
       const logger = new ContextLogger(MODULE_NAME);
+      ContextLogger.init(mockLogger as any, {
+        contextAdapter: (ctx) => ({ user: ctx.user })
+      });
       const contextData = { user: 'john', role: 'admin' };
         
-      logger['options'].contextAdapter = (ctx) => ({ user: ctx.user });
       jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
         
       logger.info('test message');
@@ -315,7 +319,7 @@ describe('ContextLogger', () => {
   describe('bootstrap logs handling', () => {
     it('should ignore bootstrap logs when ignoreBootstrapLogs is true', () => {
       const logger = new ContextLogger(MODULE_NAME);
-      logger['options'].ignoreBootstrapLogs = true;
+      ContextLogger.init(mockLogger as any, { ignoreBootstrapLogs: true });
       
       // @ts-expect-error - Simulate bootstrap phase
       logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');
@@ -325,7 +329,7 @@ describe('ContextLogger', () => {
 
     it('should handle bootstrap logs when ignoreBootstrapLogs is false', () => {
       const logger = new ContextLogger(MODULE_NAME);
-      logger['options'].ignoreBootstrapLogs = false;
+      ContextLogger.init(mockLogger as any, { ignoreBootstrapLogs: false });
       
       // @ts-expect-error - Simulate bootstrap phase
       logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');
@@ -339,6 +343,7 @@ describe('ContextLogger', () => {
 
     it('should handle bootstrap logs by default (ignoreBootstrapLogs not set)', () => {
       const logger = new ContextLogger(MODULE_NAME);
+      ContextLogger.init(mockLogger as any, {});
       
       // @ts-expect-error - Simulate bootstrap phase
       logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');

@@ -54,11 +54,11 @@ export class ContextLoggerModule implements NestModule {
         },
         {
           provide: 'CONTEXT_LOGGER_INIT',
-          useFactory: async (logger: NestJSPinoLogger) => {
-            await ContextLogger.init(logger);
+          useFactory: async (logger: NestJSPinoLogger, options: ContextLoggerFactoryOptions) => {
+            await ContextLogger.init(logger, options);
             return true;
           },
-          inject: [NestJSPinoLogger]
+          inject: [NestJSPinoLogger, 'CONTEXT_LOGGER_OPTIONS']
         },
         ContextLogger,
       ],

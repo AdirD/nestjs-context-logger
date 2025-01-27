@@ -2,7 +2,6 @@ import { ExecutionContext, ModuleMetadata } from '@nestjs/common';
 import { Params } from 'nestjs-pino';
 
 export interface ContextLoggerFactoryOptions extends Params {
-  pinoLogger?: any;
   /**
    * Configuration for grouping log fields under specific keys.
    * If not provided or empty, all fields will be spread at the root level.

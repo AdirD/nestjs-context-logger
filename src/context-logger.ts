@@ -13,15 +13,17 @@ export interface LogEntry {
 
 export class ContextLogger {
   private static internalLogger: NestJSPinoLogger;
-  private options: ContextLoggerFactoryOptions = {};
+  private static options: ContextLoggerFactoryOptions;
   private readonly fallbackLogger = new NestLogger();
 
   constructor(private moduleName: string) {}
 
-  static init(logger: NestJSPinoLogger): void {
+  static init(logger: NestJSPinoLogger, options: ContextLoggerFactoryOptions = {}): void {
     if (!ContextLogger.internalLogger) {
       ContextLogger.internalLogger = logger;
     }
+    
+    ContextLogger.options = options;
   }
 
   static updateContext(context: Record<string, any>): void {
@@ -79,7 +81,7 @@ export class ContextLogger {
 
   private callInternalLogger(level: string, message: string, bindings: Bindings, error?: Error | string) {
     // If it's a bootstrap log and ignoreBootstrapLogs is true, do nothing
-    if (typeof bindings === 'string' && this.options.ignoreBootstrapLogs) {
+    if (typeof bindings === 'string' && ContextLogger.options?.ignoreBootstrapLogs) {
       return;
     }
 
@@ -99,11 +101,11 @@ export class ContextLogger {
     error?: Error | string,
   ): LogEntry {
     const storeContext = ContextStore.getContext();
-    const adaptedContext = this.options.contextAdapter 
-      ? this.options.contextAdapter(storeContext)
+    const adaptedContext = ContextLogger.options?.contextAdapter 
+      ? ContextLogger.options?.contextAdapter(storeContext)
       : storeContext;
 
-    const { bindingsKey, contextKey } = this.options.groupFields ?? {};
+    const { bindingsKey, contextKey } = ContextLogger.options?.groupFields ?? {};
 
     const logEntry: LogEntry = {
       ...(contextKey ? { [contextKey]: adaptedContext } : adaptedContext),
