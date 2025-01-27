@@ -78,6 +78,11 @@ export class ContextLogger {
   }
 
   private callInternalLogger(level: string, message: string, bindings: Bindings, error?: Error | string) {
+    // If it's a bootstrap log and ignoreBootstrapLogs is true, do nothing
+    if (typeof bindings === 'string' && this.options.ignoreBootstrapLogs) {
+      return;
+    }
+
     let logObject: Record<string, any>;
     if (typeof bindings === 'string') {
       // Bootstrapping logs

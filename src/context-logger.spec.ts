@@ -311,4 +311,43 @@ describe('ContextLogger', () => {
       );
     });
   });
+
+  describe('bootstrap logs handling', () => {
+    it('should ignore bootstrap logs when ignoreBootstrapLogs is true', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      logger['options'].ignoreBootstrapLogs = true;
+      
+      // @ts-expect-error - Simulate bootstrap phase
+      logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');
+
+      expect(spyLog).not.toHaveBeenCalled();
+    });
+
+    it('should handle bootstrap logs when ignoreBootstrapLogs is false', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      logger['options'].ignoreBootstrapLogs = false;
+      
+      // @ts-expect-error - Simulate bootstrap phase
+      logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');
+
+      expect(spyLog).toHaveBeenCalledWith(
+        { component: 'RouterExplorer' },
+        'Mapped {/api/users, GET} route',
+        MODULE_NAME
+      );
+    });
+
+    it('should handle bootstrap logs by default (ignoreBootstrapLogs not set)', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      
+      // @ts-expect-error - Simulate bootstrap phase
+      logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');
+
+      expect(spyLog).toHaveBeenCalledWith(
+        { component: 'RouterExplorer' },
+        'Mapped {/api/users, GET} route',
+        MODULE_NAME
+      );
+    });
+  });
 });

@@ -317,6 +317,19 @@ describe('ContextLoggerModule', () => {
         contextKey: 'metadata'
       });
     });
+
+    it('should configure ignoreBootstrapLogs option', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRoot({
+            ignoreBootstrapLogs: true
+          })
+        ],
+      }).compile();
+
+      const options = module.get('CONTEXT_LOGGER_OPTIONS');
+      expect(options.ignoreBootstrapLogs).toBe(true);
+    });
   });
 
   describe('forRootAsync configuration', () => {

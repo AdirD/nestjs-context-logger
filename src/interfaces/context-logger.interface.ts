@@ -34,6 +34,14 @@ export interface ContextLoggerFactoryOptions extends Params {
   };
 
   /**
+   * When true, bootstrap logs will be ignored.
+   * This is useful for those who want to suppress NestJS framework logs during bootstrap phase coming from NestJS RouterExplorer and RoutesResolver.
+   * like "Nest application successfully started" or "Mapped {/api/users, GET} route", etc.
+   * @default false
+   */
+  ignoreBootstrapLogs?: boolean;
+
+  /**
    * Optional function to transform the context before it is included in the log entry.
    * Useful for filtering, renaming, or restructuring context data.
    * 
