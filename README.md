@@ -121,6 +121,69 @@ Now every log will include these additional fields:
 // }
 ```
 
+## Log Field Grouping
+You can group different types of log fields under specific keys, making logs more organized and easier to query:
+
+```typescript
+ContextLoggerModule.forRoot({
+  groupFields: {
+    bindingsKey: 'params',    // Groups runtime bindings
+    contextKey: 'metadata'    // Groups context information
+  }
+})
+```
+
+Before grouping:
+```json
+{
+  "userId": "123",           // context field
+  "requestId": "abc",        // context field
+  "correlationId": "xyz",    // binding
+  "timestamp": "...",        // binding
+  "level": "info",
+  "msg": "User logged in"
+}
+```
+
+After grouping:
+```json
+{
+  "metadata": {              // grouped context
+    "userId": "123",
+    "requestId": "abc"
+  },
+  "params": {               // grouped bindings
+    "correlationId": "xyz",
+    "timestamp": "..."
+  },
+  "level": "info",
+  "msg": "User logged in"
+}
+```
+
+## Context Adaptation
+Transform context data before logging to standardize format, remove sensitive data, or add computed fields:
+
+```typescript
+ContextLoggerModule.forRoot({
+  contextAdapter: (context) => ({
+    ...context,
+    sensitive: undefined,           // Remove sensitive data
+    requestId: context.reqId,      // Rename fields
+    timestamp: Date.now()          // Add new fields
+  })
+})
+```
+
+## Bootstrap Logs Control
+Control NestJS framework bootstrap logs to reduce noise during startup:
+
+```typescript
+ContextLoggerModule.forRoot({
+  ignoreBootstrapLogs: true  // Suppress framework bootstrap logs
+})
+```
+
 ## Add custom context from anywhere
 Update context from anywhere in the code 🎉. The context persists throughout the entire request execution, making it available to all services and handlers within that request.
 
@@ -268,6 +331,9 @@ flowchart TB
 | `logLevel` | string | 'info' | Log level (debug, info, warn, error) |
 | `enrichContext` | Function | ```{ duration }``` | Custom context provider |
 | `exclude` | string[] | [] | Endpoints to exclude from logging |
+| `groupFields` | Object | undefined | Group log fields under specific keys |
+| `contextAdapter` | Function | undefined | Transform context before logging |
+| `ignoreBootstrapLogs` | boolean | false | Control framework bootstrap logs |
 
 # API Reference
 

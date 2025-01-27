@@ -50,9 +50,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ContextLoggerModule } from './context-logger.module';
 import { InitContextMiddleware } from './middlewares/context.middleware';
 import { LoggerModule, Logger as NestJSPinoLogger } from 'nestjs-pino';
-import { Injectable, Provider } from '@nestjs/common';
+import { Injectable, Provider, Module } from '@nestjs/common';
 import { ContextLogger } from './context-logger';
-import { Module } from '@nestjs/common';
 
 @Injectable()
 export class MockService {
@@ -265,6 +264,72 @@ describe('ContextLoggerModule', () => {
         })
       );
     });
+
+    it('should configure with group fields for both bindings and context', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRoot({
+            groupFields: {
+              bindingsKey: 'params',
+              contextKey: 'metadata'
+            }
+          })
+        ],
+      }).compile();
+
+      const options = module.get('CONTEXT_LOGGER_OPTIONS');
+      expect(options.groupFields).toEqual({
+        bindingsKey: 'params',
+        contextKey: 'metadata'
+      });
+    });
+
+    it('should configure with group fields for bindings only', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRoot({
+            groupFields: {
+              bindingsKey: 'params'
+            }
+          })
+        ],
+      }).compile();
+
+      const options = module.get('CONTEXT_LOGGER_OPTIONS');
+      expect(options.groupFields).toEqual({
+        bindingsKey: 'params'
+      });
+    });
+
+    it('should configure with group fields for context only', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRoot({
+            groupFields: {
+              contextKey: 'metadata'
+            }
+          })
+        ],
+      }).compile();
+
+      const options = module.get('CONTEXT_LOGGER_OPTIONS');
+      expect(options.groupFields).toEqual({
+        contextKey: 'metadata'
+      });
+    });
+
+    it('should configure ignoreBootstrapLogs option', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRoot({
+            ignoreBootstrapLogs: true
+          })
+        ],
+      }).compile();
+
+      const options = module.get('CONTEXT_LOGGER_OPTIONS');
+      expect(options.ignoreBootstrapLogs).toBe(true);
+    });
   });
 
   describe('forRootAsync configuration', () => {
@@ -329,6 +394,71 @@ describe('ContextLoggerModule', () => {
         .useClass(NestJSPinoLogger)
         .compile()
       ).rejects.toThrow('Config error');
+    });
+
+    it('should configure async with group fields and context adapter', async () => {
+      const contextAdapter = (ctx: Record<string, any>) => ({ 
+        userId: ctx.user?.id,
+        tenant: ctx.user?.tenant 
+      });
+      
+      const moduleRef = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRootAsync({
+            useFactory: () => ({ 
+              groupFields: {
+                bindingsKey: 'params',
+                contextKey: 'metadata'
+              },
+              contextAdapter,
+              exclude: ['/health']
+            })
+          })
+        ]
+      }).compile();
+
+      const options = moduleRef.get('CONTEXT_LOGGER_OPTIONS');
+      expect(options.groupFields).toEqual({
+        bindingsKey: 'params',
+        contextKey: 'metadata'
+      });
+      expect(options.contextAdapter).toBe(contextAdapter);
+    });
+
+    it('should inject dependencies for group fields configuration', async () => {
+      @Injectable()
+      class ConfigService {
+        getLogConfig() {
+          return {
+            bindingsKey: 'params',
+            contextKey: 'metadata'
+          };
+        }
+      }
+
+      @Module({
+        providers: [ConfigService],
+        exports: [ConfigService]
+      })
+      class ConfigModule {}
+
+      const moduleRef = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRootAsync({
+            imports: [ConfigModule],
+            inject: [ConfigService],
+            useFactory: (config: ConfigService) => ({
+              groupFields: config.getLogConfig()
+            })
+          })
+        ]
+      }).compile();
+
+      const options = moduleRef.get('CONTEXT_LOGGER_OPTIONS');
+      expect(options.groupFields).toEqual({
+        bindingsKey: 'params',
+        contextKey: 'metadata'
+      });
     });
   });
 

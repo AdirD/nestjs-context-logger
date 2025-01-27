@@ -3,6 +3,7 @@ import { ContextStore } from './store/context-store';
 
 describe('ContextLogger', () => {
   const spyLog = jest.fn();
+  const spyInfo = jest.fn();
   const spyDebug = jest.fn();
   const spyWarn = jest.fn();
   const spyError = jest.fn();
@@ -14,6 +15,7 @@ describe('ContextLogger', () => {
   const mockLogger = {
     log: spyLog,
     debug: spyDebug,
+    info: spyInfo,
     warn: spyWarn,
     error: spyError,
   };
@@ -174,6 +176,176 @@ describe('ContextLogger', () => {
       expect(mockLogger.log).toHaveBeenCalledWith(
         { ...bindings, ...CONTEXT },
         message,
+        MODULE_NAME
+      );
+    });
+  });
+
+  describe('log entry structure', () => {
+    describe('with no grouping (default)', () => {
+      it('should spread bindings at root level', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger.info('test message', { key: 'value' });
+
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            key: 'value',
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
+
+      it('should spread context at root level', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        const contextData = { user: 'john' };
+        
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message');
+
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user: 'john',
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
+    });
+
+    describe('with partial grouping', () => {
+      it('should group only bindings when bindingsKey provided', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger['options'].groupFields = { bindingsKey: 'params' };
+        const contextData = { user: 'john' };
+        
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message', { key: 'value' });
+
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            params: { key: 'value' },
+            user: 'john',
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
+
+      it('should group only context when contextKey provided', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger['options'].groupFields = { contextKey: 'metadata' };
+        const contextData = { user: 'john' };
+        
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message', { key: 'value' });
+
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: { user: 'john' },
+            key: 'value',
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
+    });
+
+    describe('with full grouping', () => {
+      it('should group both bindings and context under specified keys', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger['options'].groupFields = {
+          bindingsKey: 'params',
+          contextKey: 'metadata'
+        };
+        
+        const contextData = { user: 'john' };
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message', { key: 'value' });
+
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            params: { key: 'value' },
+            metadata: { user: 'john' },
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
+    });
+  });
+
+  describe('context adaptation', () => {
+    it('should adapt context when adapter is provided', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      const contextData = { user: 'john', role: 'admin' };
+        
+      logger['options'].contextAdapter = (ctx) => ({ user: ctx.user });
+      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        
+      logger.info('test message');
+
+      expect(spyInfo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user: 'john',  // Spread at root level since groupFields is disabled by default
+        }),
+        'test message',
+        MODULE_NAME
+      );
+    });
+  });
+
+  describe('null/undefined handling', () => {
+    it('should omit null or undefined values', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      jest.spyOn(ContextStore, 'getContext').mockReturnValue({});
+      logger.info('test message');
+
+      expect(spyInfo).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          bindings: undefined,
+          context: undefined,
+        }),
+        'test message',
+        MODULE_NAME
+      );
+    });
+  });
+
+  describe('bootstrap logs handling', () => {
+    it('should ignore bootstrap logs when ignoreBootstrapLogs is true', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      logger['options'].ignoreBootstrapLogs = true;
+      
+      // @ts-expect-error - Simulate bootstrap phase
+      logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');
+
+      expect(spyLog).not.toHaveBeenCalled();
+    });
+
+    it('should handle bootstrap logs when ignoreBootstrapLogs is false', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      logger['options'].ignoreBootstrapLogs = false;
+      
+      // @ts-expect-error - Simulate bootstrap phase
+      logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');
+
+      expect(spyLog).toHaveBeenCalledWith(
+        { component: 'RouterExplorer' },
+        'Mapped {/api/users, GET} route',
+        MODULE_NAME
+      );
+    });
+
+    it('should handle bootstrap logs by default (ignoreBootstrapLogs not set)', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      
+      // @ts-expect-error - Simulate bootstrap phase
+      logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');
+
+      expect(spyLog).toHaveBeenCalledWith(
+        { component: 'RouterExplorer' },
+        'Mapped {/api/users, GET} route',
         MODULE_NAME
       );
     });
