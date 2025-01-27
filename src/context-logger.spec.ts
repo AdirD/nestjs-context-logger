@@ -3,6 +3,7 @@ import { ContextStore } from './store/context-store';
 
 describe('ContextLogger', () => {
   const spyLog = jest.fn();
+  const spyInfo = jest.fn();
   const spyDebug = jest.fn();
   const spyWarn = jest.fn();
   const spyError = jest.fn();
@@ -14,6 +15,7 @@ describe('ContextLogger', () => {
   const mockLogger = {
     log: spyLog,
     debug: spyDebug,
+    info: spyInfo,
     warn: spyWarn,
     error: spyError,
   };
@@ -180,174 +182,162 @@ describe('ContextLogger', () => {
   });
 
   describe('log entry structure', () => {
-    it('should group bindings under configured bindings key when enabled', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+    describe('with groupFields disabled (default)', () => {
+      it('should spread bindings at root level', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger.info('test message', { key: 'value' });
 
-      logger.info('test message', { key: 'value' });
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            key: 'value',
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'test message',
-          bindings: { key: 'value' },  // Default key from groupFields
-        }),
-      );
+      it('should spread context at root level', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        const contextData = { user: 'john' };
+        
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message');
+
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user: 'john',
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
+
+      it('should include error at root level', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        const error = new Error('test error');
+
+        logger.error('error message', error);
+
+        expect(spyError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            err: error,
+          }),
+          'error message',
+          MODULE_NAME
+        );
+      });
+
+      it('should include all fields at root level', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        const error = new Error('test error');
+        const contextData = { user: 'john' };
+        
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.error('error message', error, { operation: 'test' });
+
+        expect(spyError).toHaveBeenCalledWith(
+          expect.objectContaining({
+            operation: 'test',
+            user: 'john',
+            err: error,
+          }),
+          'error message',
+          MODULE_NAME
+        );
+      });
     });
 
-    it('should spread fields at root level when grouping is disabled', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      logger['options'].groupFields = {
-        enabled: false,
-      };
-      
-      const contextData = { user: 'john' };
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
-      logger.info('test message', { key: 'value' });
+    describe('with groupFields enabled', () => {
+      it('should group bindings under default key', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger['options'].groupFields = { enabled: true };
+        
+        logger.info('test message', { key: 'value' });
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'test message',
-          key: 'value',
-          user: 'john',
-        }),
-      );
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            bindings: { key: 'value' },
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
+
+      it('should group context under default key', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger['options'].groupFields = { enabled: true };
+        const contextData = { user: 'john' };
+        
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message');
+
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            context: contextData,
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
+
+      it('should use custom key names when provided', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger['options'].groupFields = {
+          enabled: true,
+          bindingsKey: 'params',
+          contextKey: 'metadata',
+        };
+        
+        const contextData = { user: 'john' };
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message', { key: 'value' });
+
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            params: { key: 'value' },
+            metadata: contextData,
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
     });
 
-    it('should use custom key names when grouping is enabled', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      const contextData = { user: 'john' };
-      
-      logger['options'].groupFields = {
-        enabled: true,
-        bindingsKey: 'params',
-        contextKey: 'metadata',
-      };
-      
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
-      logger.info('test message', { key: 'value' });
+    describe('context adaptation', () => {
+      it('should adapt context when adapter is provided', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        const contextData = { user: 'john', role: 'admin' };
+        
+        logger['options'].contextAdapter = (ctx) => ({ user: ctx.user });
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        
+        logger.info('test message');
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'test message',
-          params: { key: 'value' },
-          metadata: contextData,
-        }),
-      );
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user: 'john',  // Spread at root level since groupFields is disabled by default
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
     });
 
-    it('should group context under configured context key', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      const contextData = { user: 'john' };
-      
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
-      logger.info('test message');
+    describe('null/undefined handling', () => {
+      it('should omit null or undefined values', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue({});
+        logger.info('test message');
 
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'test message',
-          context: contextData,
-        }),
-      );
-    });
-
-    it('should adapt context when contextAdapter is provided', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      const contextData = { user: 'john', role: 'admin' };
-      const adaptedContext = { user: 'john' };
-      
-      logger['options'].contextAdapter = (ctx) => ({ user: ctx.user });
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
-      
-      logger.info('test message');
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'test message',
-          context: adaptedContext,
-        }),
-      );
-    });
-
-    it('should use custom key names for bindings and context', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      const contextData = { user: 'john' };
-      
-      logger['options'].groupFields = {
-        enabled: true,
-        bindingsKey: 'params',
-        contextKey: 'metadata',
-      };
-      
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
-      logger.info('test message', { key: 'value' });
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'test message',
-          params: { key: 'value' },
-          metadata: contextData,
-        }),
-      );
-    });
-
-    it('should include error under err field', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      const error = new Error('test error');
-
-      logger.error('error message', error);
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'error message',
-          err: error,
-        }),
-      );
-    });
-
-    it('should include all fields when available', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
-      const error = new Error('test error');
-      const contextData = { user: 'john' };
-      
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
-      logger.error('error message', error, { operation: 'test' });
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'error message',
-          bindings: { operation: 'test' },
-          context: contextData,
-          err: error,
-        }),
-      );
-    });
-
-    it('should omit null or undefined values', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
-      
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue({});
-      logger.info('test message');
-
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.not.objectContaining({
-          bindings: undefined,
-          context: undefined,
-        }),
-      );
-      expect(consoleSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          message: 'test message',
-        }),
-      );
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.not.objectContaining({
+            bindings: undefined,
+            context: undefined,
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
     });
   });
 });

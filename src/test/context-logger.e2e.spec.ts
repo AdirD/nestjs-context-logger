@@ -363,10 +363,10 @@ describe('ContextLogger E2E', () => {
         expect(mockNestJSPinoLogger.log.mock.calls[0]).toMatchObject([
           {
             correlationId: expect.any(String),
-            requestMethod: "GET",
-            requestUrl: "/simple-test",
-            environment: "test",
-            traceId: "express-trace-123",
+            requestMethod: 'GET',
+            requestUrl: '/simple-test',
+            environment: 'test',
+            traceId: 'express-trace-123',
           },
           'test endpoint hit',
           SimpleTestController.name
@@ -401,10 +401,10 @@ describe('ContextLogger E2E', () => {
         expect(mockNestJSPinoLogger.log.mock.calls[0]).toMatchObject([
           {
             correlationId: expect.any(String),
-            requestMethod: "GET",
-            requestUrl: "/simple-test",
-            environment: "test",
-            traceId: "fastify-trace-123",
+            requestMethod: 'GET',
+            requestUrl: '/simple-test',
+            environment: 'test',
+            traceId: 'fastify-trace-123',
           },
           'test endpoint hit',
           SimpleTestController.name

@@ -7,20 +7,13 @@ import { ContextLoggerFactoryOptions } from './interfaces/context-logger.interfa
 type Bindings = Record<string, any>;
 
 export interface LogEntry {
-  message: string;
   [key: string]: any;
   err?: Error | string;
 }
 
 export class ContextLogger {
   private static internalLogger: NestJSPinoLogger;
-  private options: ContextLoggerFactoryOptions = {
-    groupFields: {
-      enabled: true,
-      bindingsKey: 'bindings',
-      contextKey: 'context',
-    }
-  };
+  private options: ContextLoggerFactoryOptions = {};
   private readonly fallbackLogger = new NestLogger();
 
   constructor(private moduleName: string) {}
@@ -90,14 +83,13 @@ export class ContextLogger {
       // Bootstrapping logs
       logObject = { component: bindings };
     } else {
-      logObject = this.createLogEntry(message, bindings, error);
+      logObject = this.createLogEntry(bindings, error);
     }
     const logger = ContextLogger.internalLogger ?? this.fallbackLogger;
     return logger[level](logObject, ...[message, this.moduleName]);
   }
 
   private createLogEntry(
-    message: string,
     bindings?: Record<string, any>,
     error?: Error | string,
   ): LogEntry {
@@ -106,18 +98,16 @@ export class ContextLogger {
       ? this.options.contextAdapter(storeContext)
       : storeContext;
 
-    const { enabled = true, bindingsKey = 'bindings', contextKey = 'context' } = 
+    const { enabled = false, bindingsKey = 'bindings', contextKey = 'context' } = 
       this.options.groupFields ?? {};
 
     const logEntry = enabled 
       ? {
-        message,
         [contextKey]: adaptedContext,
         [bindingsKey]: bindings,
         err: error,
       }
       : {
-        message,
         ...adaptedContext,
         ...bindings,
         err: error,
