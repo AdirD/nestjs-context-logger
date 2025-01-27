@@ -106,7 +106,7 @@ export class ContextLogger {
       ? this.options.contextAdapter(storeContext)
       : storeContext;
 
-    const { enabled = true, bindingsKey = 'bindings', contextKey = 'context' } = 
+    const { enabled: groupFieldsEnabled = true, bindingsKey = 'bindings', contextKey = 'context' } = 
       this.options.groupFields ?? {};
 
     const logEntry = enabled 
