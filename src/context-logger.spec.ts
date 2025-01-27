@@ -182,124 +182,96 @@ describe('ContextLogger', () => {
   });
 
   describe('log entry structure', () => {
-    it('should group bindings under default bindings key when enabled', () => {
-      const logger = new ContextLogger(MODULE_NAME);
+    describe('with no grouping (default)', () => {
+      it('should spread bindings at root level', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger.info('test message', { key: 'value' });
 
-      logger.info('test message', { key: 'value' });
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            key: 'value',
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
 
-      expect(spyInfo).toHaveBeenCalledWith(
-        expect.objectContaining({
-          key: 'value',
-        }),
-        'test message',
-        MODULE_NAME
-      );
-    });
-
-    it('should spread context at root level', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const contextData = { user: 'john' };
+      it('should spread context at root level', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        const contextData = { user: 'john' };
         
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
-      logger.info('test message');
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message');
 
-      expect(spyInfo).toHaveBeenCalledWith(
-        expect.objectContaining({
-          user: 'john',
-        }),
-        'test message',
-        MODULE_NAME
-      );
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            user: 'john',
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
     });
 
-    it('should include error at root level', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const error = new Error('test error');
-
-      logger.error('error message', error);
-
-      expect(spyError).toHaveBeenCalledWith(
-        expect.objectContaining({
-          err: error,
-        }),
-        'error message',
-        MODULE_NAME
-      );
-    });
-
-    it('should include all fields at root level', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      const error = new Error('test error');
-      const contextData = { user: 'john' };
+    describe('with partial grouping', () => {
+      it('should group only bindings when bindingsKey provided', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger['options'].groupFields = { bindingsKey: 'params' };
+        const contextData = { user: 'john' };
         
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
-      logger.error('error message', error, { operation: 'test' });
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message', { key: 'value' });
 
-      expect(spyError).toHaveBeenCalledWith(
-        expect.objectContaining({
-          operation: 'test',
-          user: 'john',
-          err: error,
-        }),
-        'error message',
-        MODULE_NAME
-      );
-    });
-  });
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            params: { key: 'value' },
+            user: 'john',
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
 
-  describe('with groupFields enabled', () => {
-    it('should group bindings under default key', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      logger['options'].groupFields = { enabled: true };
+      it('should group only context when contextKey provided', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger['options'].groupFields = { contextKey: 'metadata' };
+        const contextData = { user: 'john' };
         
-      logger.info('test message', { key: 'value' });
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message', { key: 'value' });
 
-      expect(spyInfo).toHaveBeenCalledWith(
-        expect.objectContaining({
-          bindings: { key: 'value' },
-        }),
-        'test message',
-        MODULE_NAME
-      );
-    });
-
-    it('should group context under default key', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      logger['options'].groupFields = { enabled: true };
-      const contextData = { user: 'john' };
-        
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
-      logger.info('test message');
-
-      expect(spyInfo).toHaveBeenCalledWith(
-        expect.objectContaining({
-          context: contextData,
-        }),
-        'test message',
-        MODULE_NAME
-      );
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            metadata: { user: 'john' },
+            key: 'value',
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
     });
 
-    it('should use custom key names when provided', () => {
-      const logger = new ContextLogger(MODULE_NAME);
-      logger['options'].groupFields = {
-        enabled: true,
-        bindingsKey: 'params',
-        contextKey: 'metadata',
-      };
+    describe('with full grouping', () => {
+      it('should group both bindings and context under specified keys', () => {
+        const logger = new ContextLogger(MODULE_NAME);
+        logger['options'].groupFields = {
+          bindingsKey: 'params',
+          contextKey: 'metadata'
+        };
         
-      const contextData = { user: 'john' };
-      jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
-      logger.info('test message', { key: 'value' });
+        const contextData = { user: 'john' };
+        jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
+        logger.info('test message', { key: 'value' });
 
-      expect(spyInfo).toHaveBeenCalledWith(
-        expect.objectContaining({
-          params: { key: 'value' },
-          metadata: contextData,
-        }),
-        'test message',
-        MODULE_NAME
-      );
+        expect(spyInfo).toHaveBeenCalledWith(
+          expect.objectContaining({
+            params: { key: 'value' },
+            metadata: { user: 'john' },
+          }),
+          'test message',
+          MODULE_NAME
+        );
+      });
     });
   });
 

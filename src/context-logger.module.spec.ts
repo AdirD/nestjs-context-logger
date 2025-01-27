@@ -265,12 +265,11 @@ describe('ContextLoggerModule', () => {
       );
     });
 
-    it('should configure with group fields options', async () => {
+    it('should configure with group fields for both bindings and context', async () => {
       const module: TestingModule = await Test.createTestingModule({
         imports: [
           ContextLoggerModule.forRoot({
             groupFields: {
-              enabled: true,
               bindingsKey: 'params',
               contextKey: 'metadata'
             }
@@ -280,19 +279,17 @@ describe('ContextLoggerModule', () => {
 
       const options = module.get('CONTEXT_LOGGER_OPTIONS');
       expect(options.groupFields).toEqual({
-        enabled: true,
         bindingsKey: 'params',
         contextKey: 'metadata'
       });
     });
 
-    it('should merge group fields with defaults', async () => {
+    it('should configure with group fields for bindings only', async () => {
       const module: TestingModule = await Test.createTestingModule({
         imports: [
           ContextLoggerModule.forRoot({
             groupFields: {
               bindingsKey: 'params'
-              // contextKey and enabled not specified
             }
           })
         ],
@@ -301,7 +298,23 @@ describe('ContextLoggerModule', () => {
       const options = module.get('CONTEXT_LOGGER_OPTIONS');
       expect(options.groupFields).toEqual({
         bindingsKey: 'params'
-        // Don't test defaults here as they're handled by the ContextLogger class
+      });
+    });
+
+    it('should configure with group fields for context only', async () => {
+      const module: TestingModule = await Test.createTestingModule({
+        imports: [
+          ContextLoggerModule.forRoot({
+            groupFields: {
+              contextKey: 'metadata'
+            }
+          })
+        ],
+      }).compile();
+
+      const options = module.get('CONTEXT_LOGGER_OPTIONS');
+      expect(options.groupFields).toEqual({
+        contextKey: 'metadata'
       });
     });
   });
