@@ -182,10 +182,11 @@ describe('ContextLogger', () => {
   });
 
   describe('log entry structure', () => {
-    describe('with groupFields disabled (default)', () => {
-      it('should spread bindings at root level', () => {
-        const logger = new ContextLogger(MODULE_NAME);
-        logger.info('test message', { key: 'value' });
+    it('should group bindings under default bindings key when enabled', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
+
+      logger.info('test message', { key: 'value' });
 
         expect(spyInfo).toHaveBeenCalledWith(
           expect.objectContaining({
