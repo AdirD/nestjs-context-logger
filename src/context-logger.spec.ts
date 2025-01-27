@@ -180,7 +180,7 @@ describe('ContextLogger', () => {
   });
 
   describe('log entry structure', () => {
-    it('should group bindings under configured bindings key when enabled', () => {
+    it('should group bindings under default bindings key when enabled', () => {
       const logger = new ContextLogger(MODULE_NAME);
       const consoleSpy = jest.spyOn(console, 'log').mockImplementation();
 
