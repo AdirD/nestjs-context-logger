@@ -1,7 +1,7 @@
 import { Logger as NestLogger } from '@nestjs/common';
 import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { ContextStore } from './store/context-store';
-import { omitBy, isNil } from 'lodash';
+import { omitBy, isNil, isEmpty } from 'lodash';
 import { ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
 
 type Bindings = Record<string, any>;
@@ -113,21 +113,15 @@ export class ContextLogger {
       ...(error && { err: error }),
     };
 
-    return omitBy(logEntry, isNil);
-  }
-
-  private isEmptyObject(value: Bindings): boolean {
-    return value
-      && Object.keys(value).length === 0;
+    return omitBy(
+      logEntry,
+      (value) => isNil(value) || (isEmpty(value) && !(value instanceof Error))
+    );
   }
 
   private parseObject(key: string, obj: Bindings): Bindings {
     if (!key) {
       return obj;
-    }
-
-    if (this.isEmptyObject(obj)) {
-      return {};
     }
 
     return { [key]: obj };
