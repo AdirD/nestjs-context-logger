@@ -113,15 +113,16 @@ export class ContextLogger {
       ...(error && { err: error }),
     };
 
-    return omitBy(
-      logEntry,
-      (value) => isNil(value) || (isEmpty(value) && !(value instanceof Error))
-    );
+    return omitBy(logEntry, isNil);
   }
 
   private parseObject(key: string, obj: Bindings): Bindings {
     if (!key) {
       return obj;
+    }
+
+    if (isEmpty(obj)) {
+      return {};
     }
 
     return { [key]: obj };
