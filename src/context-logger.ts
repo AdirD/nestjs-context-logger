@@ -1,7 +1,7 @@
 import { Logger as NestLogger } from '@nestjs/common';
 import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { ContextStore } from './store/context-store';
-import { omitBy, isNil } from 'lodash';
+import { omitBy, isNil, isEmpty } from 'lodash';
 import { ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
 
 type Bindings = Record<string, any>;
@@ -16,13 +16,13 @@ export class ContextLogger {
   private static options: ContextLoggerFactoryOptions;
   private readonly fallbackLogger = new NestLogger();
 
-  constructor(private moduleName: string) {}
+  constructor(private moduleName: string) { }
 
   static init(logger: NestJSPinoLogger, options: ContextLoggerFactoryOptions = {}): void {
     if (!ContextLogger.internalLogger) {
       ContextLogger.internalLogger = logger;
     }
-    
+
     ContextLogger.options = options;
   }
 
@@ -45,15 +45,15 @@ export class ContextLogger {
   debug(message: string, bindings?: Bindings) {
     this.callInternalLogger('debug', message, (bindings ?? {}));
   }
-  
+
   verbose(message: string, bindings?: Bindings) {
     this.callInternalLogger('verbose', message, (bindings ?? {}));
   }
-  
+
   warn(message: string, bindings?: Bindings) {
     this.callInternalLogger('warn', message, (bindings ?? {}));
   }
-  
+
   fatal(message: string, bindings?: Bindings) {
     this.callInternalLogger('fatal', message, (bindings ?? {}));
   }
@@ -97,22 +97,34 @@ export class ContextLogger {
   }
 
   private createLogEntry(
-    bindings?: Record<string, any>,
+    bindings?: Bindings,
     error?: Error | string,
   ): LogEntry {
     const storeContext = ContextStore.getContext();
-    const adaptedContext = ContextLogger.options?.contextAdapter 
+    const adaptedContext = ContextLogger.options?.contextAdapter
       ? ContextLogger.options?.contextAdapter(storeContext)
       : storeContext;
 
     const { bindingsKey, contextKey } = ContextLogger.options?.groupFields ?? {};
 
     const logEntry: LogEntry = {
-      ...(contextKey ? { [contextKey]: adaptedContext } : adaptedContext),
-      ...(bindingsKey ? { [bindingsKey]: bindings } : bindings),
+      ...this.parseObject(contextKey, adaptedContext),
+      ...this.parseObject(bindingsKey, bindings),
       ...(error && { err: error }),
     };
 
     return omitBy(logEntry, isNil);
+  }
+
+  private parseObject(key: string, obj: Bindings): Bindings {
+    if (!key) {
+      return obj;
+    }
+
+    if (isEmpty(obj)) {
+      return {};
+    }
+
+    return { [key]: obj };
   }
 }
