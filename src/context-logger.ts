@@ -38,8 +38,14 @@ export class ContextLogger {
     this.callInternalLogger('log', message, (bindings ?? {}));
   }
 
+  /**
+   * @deprecated This method is deprecated and will be removed in a future version.
+   * It currently calls the 'log' method internally.
+   * Please use the 'log' method directly instead.
+   * https://github.com/AdirD/nestjs-context-logger/issues/5
+   */
   info(message: string, bindings?: Bindings) {
-    this.callInternalLogger('info', message, (bindings ?? {}));
+    this.callInternalLogger('log', message, (bindings ?? {}));
   }
 
   debug(message: string, bindings?: Bindings) {

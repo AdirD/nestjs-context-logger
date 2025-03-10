@@ -8,22 +8,34 @@ describe('ContextLogger', () => {
   const spyWarn = jest.fn();
   const spyError = jest.fn();
   const MODULE_NAME = 'TestModule';
-  const contextLogger = new ContextLogger(MODULE_NAME);
   const CONTEXT = { someContextField: 'someContextValue' };
 
-  jest.spyOn(ContextStore, 'getContext').mockReturnValue(CONTEXT);
-  const mockLogger = {
-    log: spyLog,
-    debug: spyDebug,
-    info: spyInfo,
-    warn: spyWarn,
-    error: spyError,
-  };
+  let contextLogger: ContextLogger;
+  let mockLogger: any;
 
-  ContextLogger.init(mockLogger as any);
+  beforeEach(() => {
+    jest.clearAllMocks();
+    
+    jest.spyOn(ContextStore, 'getContext').mockReturnValue(CONTEXT);
+    
+    mockLogger = {
+      log: spyLog,
+      debug: spyDebug,
+      info: spyInfo,
+      warn: spyWarn,
+      error: spyError,
+    };
+
+    // Reset the internal logger for each test to ensure clean state
+    (ContextLogger as any).internalLogger = null;
+    ContextLogger.init(mockLogger);
+    
+    contextLogger = new ContextLogger(MODULE_NAME);
+  });
 
   afterEach(() => {
     jest.clearAllMocks();
+    jest.restoreAllMocks();
   });
 
   describe('log, debug, warn methods', () => {
@@ -46,6 +58,20 @@ describe('ContextLogger', () => {
       contextLogger.log(message);
 
       expect(mockLogger.log).toHaveBeenCalledWith(CONTEXT, message, MODULE_NAME);
+    });
+    
+    it('should call log method when info is called', () => {
+      const message = 'Test message';
+      const bindings = { someBinding: 'value' };
+
+      contextLogger.info(message, bindings);
+
+      // Since info method calls log internally
+      expect(mockLogger.log).toHaveBeenCalledWith(
+        { ...bindings, ...CONTEXT },
+        message,
+        MODULE_NAME
+      );
     });
   });
 
@@ -147,7 +173,8 @@ describe('ContextLogger', () => {
 
     afterEach(() => {
       fallbackLoggerSpy.mockRestore();
-      ContextLogger.init(mockLogger as any);
+      // Restore the internal logger
+      ContextLogger.init(mockLogger);
     });
 
     it('should handle bootstrap component logs with string bindings', () => {
@@ -187,7 +214,7 @@ describe('ContextLogger', () => {
         const logger = new ContextLogger(MODULE_NAME);
         logger.info('test message', { key: 'value' });
 
-        expect(spyInfo).toHaveBeenCalledWith(
+        expect(spyLog).toHaveBeenCalledWith(
           expect.objectContaining({
             key: 'value',
           }),
@@ -203,7 +230,7 @@ describe('ContextLogger', () => {
         jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
         logger.info('test message');
 
-        expect(spyInfo).toHaveBeenCalledWith(
+        expect(spyLog).toHaveBeenCalledWith(
           expect.objectContaining({
             user: 'john',
           }),
@@ -214,15 +241,20 @@ describe('ContextLogger', () => {
     });
 
     describe('with partial grouping', () => {
+      beforeEach(() => {
+        // Reset the internal logger for each test to ensure clean state
+        (ContextLogger as any).internalLogger = null;
+      });
+      
       it('should group only bindings when bindingsKey provided', () => {
         const logger = new ContextLogger(MODULE_NAME);
-        ContextLogger.init(mockLogger as any, { groupFields: { bindingsKey: 'params' } });
+        ContextLogger.init(mockLogger, { groupFields: { bindingsKey: 'params' } });
         const contextData = { user: 'john' };
 
         jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
         logger.info('test message', { key: 'value' });
 
-        expect(spyInfo).toHaveBeenCalledWith(
+        expect(spyLog).toHaveBeenCalledWith(
           expect.objectContaining({
             params: { key: 'value' },
             user: 'john',
@@ -234,13 +266,13 @@ describe('ContextLogger', () => {
 
       it('should not group bindings when bindingsKey provided but bindings object is empty', () => {
         const logger = new ContextLogger(MODULE_NAME);
-        ContextLogger.init(mockLogger as any, { groupFields: { bindingsKey: 'params' } });
+        ContextLogger.init(mockLogger, { groupFields: { bindingsKey: 'params' } });
         const contextData = { user: 'john' };
 
         jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
         logger.info('test message');
 
-        expect(spyInfo).toHaveBeenCalledWith(
+        expect(spyLog).toHaveBeenCalledWith(
           { user: 'john', },
           'test message',
           MODULE_NAME
@@ -249,13 +281,13 @@ describe('ContextLogger', () => {
 
       it('should group only context when contextKey provided', () => {
         const logger = new ContextLogger(MODULE_NAME);
-        ContextLogger.init(mockLogger as any, { groupFields: { contextKey: 'metadata' } });
+        ContextLogger.init(mockLogger, { groupFields: { contextKey: 'metadata' } });
         const contextData = { user: 'john' };
 
         jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
         logger.info('test message', { key: 'value' });
 
-        expect(spyInfo).toHaveBeenCalledWith(
+        expect(spyLog).toHaveBeenCalledWith(
           expect.objectContaining({
             metadata: { user: 'john' },
             key: 'value',
@@ -267,13 +299,13 @@ describe('ContextLogger', () => {
 
       it('should not group context when contextKey provided but context object is empty', () => {
         const logger = new ContextLogger(MODULE_NAME);
-        ContextLogger.init(mockLogger as any, { groupFields: { contextKey: 'metadata' } });
+        ContextLogger.init(mockLogger, { groupFields: { contextKey: 'metadata' } });
         const contextData = {};
 
         jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
         logger.info('test message', { key: 'value' });
 
-        expect(spyInfo).toHaveBeenCalledWith(
+        expect(spyLog).toHaveBeenCalledWith(
           { key: 'value' },
           'test message',
           MODULE_NAME
@@ -282,9 +314,14 @@ describe('ContextLogger', () => {
     });
 
     describe('with full grouping', () => {
+      beforeEach(() => {
+        // Reset the internal logger for each test to ensure clean state
+        (ContextLogger as any).internalLogger = null;
+      });
+      
       it('should group both bindings and context under specified keys', () => {
         const logger = new ContextLogger(MODULE_NAME);
-        ContextLogger.init(mockLogger as any, {
+        ContextLogger.init(mockLogger, {
           groupFields: {
             bindingsKey: 'params',
             contextKey: 'metadata'
@@ -295,7 +332,7 @@ describe('ContextLogger', () => {
         jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
         logger.info('test message', { key: 'value' });
 
-        expect(spyInfo).toHaveBeenCalledWith(
+        expect(spyLog).toHaveBeenCalledWith(
           expect.objectContaining({
             params: { key: 'value' },
             metadata: { user: 'john' },
@@ -307,7 +344,7 @@ describe('ContextLogger', () => {
 
       it('should not add specified keys when both bindings and context are empty', () => {
         const logger = new ContextLogger(MODULE_NAME);
-        ContextLogger.init(mockLogger as any, {
+        ContextLogger.init(mockLogger, {
           groupFields: {
             bindingsKey: 'params',
             contextKey: 'metadata'
@@ -318,7 +355,7 @@ describe('ContextLogger', () => {
         jest.spyOn(ContextStore, 'getContext').mockReturnValue(contextData);
         logger.info('test message');
 
-        expect(spyInfo).toHaveBeenCalledWith(
+        expect(spyLog).toHaveBeenCalledWith(
           {},
           'test message',
           MODULE_NAME
@@ -328,9 +365,14 @@ describe('ContextLogger', () => {
   });
 
   describe('context adaptation', () => {
+    beforeEach(() => {
+      // Reset the internal logger for each test to ensure clean state
+      (ContextLogger as any).internalLogger = null;
+    });
+    
     it('should adapt context when adapter is provided', () => {
       const logger = new ContextLogger(MODULE_NAME);
-      ContextLogger.init(mockLogger as any, {
+      ContextLogger.init(mockLogger, {
         contextAdapter: (ctx) => ({ user: ctx.user })
       });
       const contextData = { user: 'john', role: 'admin' };
@@ -339,7 +381,7 @@ describe('ContextLogger', () => {
 
       logger.info('test message');
 
-      expect(spyInfo).toHaveBeenCalledWith(
+      expect(spyLog).toHaveBeenCalledWith(
         expect.objectContaining({
           user: 'john',  // Spread at root level since groupFields is disabled by default
         }),
@@ -355,7 +397,7 @@ describe('ContextLogger', () => {
       jest.spyOn(ContextStore, 'getContext').mockReturnValue({});
       logger.info('test message');
 
-      expect(spyInfo).toHaveBeenCalledWith(
+      expect(spyLog).toHaveBeenCalledWith(
         expect.not.objectContaining({
           bindings: undefined,
           context: undefined,
@@ -367,9 +409,14 @@ describe('ContextLogger', () => {
   });
 
   describe('bootstrap logs handling', () => {
+    beforeEach(() => {
+      // Reset the internal logger for each test to ensure clean state
+      (ContextLogger as any).internalLogger = null;
+    });
+    
     it('should ignore bootstrap logs when ignoreBootstrapLogs is true', () => {
       const logger = new ContextLogger(MODULE_NAME);
-      ContextLogger.init(mockLogger as any, { ignoreBootstrapLogs: true });
+      ContextLogger.init(mockLogger, { ignoreBootstrapLogs: true });
 
       // @ts-expect-error - Simulate bootstrap phase
       logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');
@@ -379,7 +426,7 @@ describe('ContextLogger', () => {
 
     it('should handle bootstrap logs when ignoreBootstrapLogs is false', () => {
       const logger = new ContextLogger(MODULE_NAME);
-      ContextLogger.init(mockLogger as any, { ignoreBootstrapLogs: false });
+      ContextLogger.init(mockLogger, { ignoreBootstrapLogs: false });
 
       // @ts-expect-error - Simulate bootstrap phase
       logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');
@@ -393,7 +440,7 @@ describe('ContextLogger', () => {
 
     it('should handle bootstrap logs by default (ignoreBootstrapLogs not set)', () => {
       const logger = new ContextLogger(MODULE_NAME);
-      ContextLogger.init(mockLogger as any, {});
+      ContextLogger.init(mockLogger, {});
 
       // @ts-expect-error - Simulate bootstrap phase
       logger.log('Mapped {/api/users, GET} route', 'RouterExplorer');

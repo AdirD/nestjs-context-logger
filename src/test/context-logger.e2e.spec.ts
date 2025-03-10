@@ -141,6 +141,17 @@ class IsolationCTestController {
   }
 }
 
+@Controller()
+class InfoMethodTestController {
+  private readonly logger = new ContextLogger(InfoMethodTestController.name);
+
+  @Get('/info-method-test')
+  test() {
+    this.logger.info('info method test endpoint hit', { testBinding: 'test-value' });
+    return { success: true };
+  }
+}
+
 describe('ContextLogger E2E', () => {
   let app: INestApplication;
 
@@ -164,7 +175,7 @@ describe('ContextLogger E2E', () => {
           })
         })
       ],
-      controllers: [SimpleTestController, ChainTestController, IsolationATestController, IsolationBTestController, IsolationCTestController ],
+      controllers: [SimpleTestController, ChainTestController, IsolationATestController, IsolationBTestController, IsolationCTestController, InfoMethodTestController],
       providers: [ChainTestService]
     }).compile();
 
@@ -309,6 +320,31 @@ describe('ContextLogger E2E', () => {
       'test endpoint c hit',
       IsolationCTestController.name,
     ]);
+  });
+
+  it('should use log method when info method is called', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/info-method-test')
+      .set('X-Trace-ID', 'trace-info-123')
+      .expect(200);
+
+    expect(response.body).toEqual({ success: true });
+    
+    // Verify that log was called (not info) since info is now deprecated and calls log internally
+    expect(mockNestJSPinoLogger.log).toHaveBeenCalledWith(
+      expect.objectContaining({
+        environment: 'test',
+        requestMethod: 'GET',
+        requestUrl: '/info-method-test',
+        traceId: 'trace-info-123',
+        testBinding: 'test-value'
+      }),
+      'info method test endpoint hit',
+      InfoMethodTestController.name
+    );
+    
+    // We don't need to check if info was called since our mock doesn't have an info method
+    // The important part is that log was called with the correct parameters
   });
 
   describe('ContextLogger Platform Compatibility', () => {
