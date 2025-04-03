@@ -15,9 +15,9 @@ describe('ContextLogger', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    
+
     jest.spyOn(ContextStore, 'getContext').mockReturnValue(CONTEXT);
-    
+
     mockLogger = {
       log: spyLog,
       debug: spyDebug,
@@ -29,7 +29,7 @@ describe('ContextLogger', () => {
     // Reset the internal logger for each test to ensure clean state
     (ContextLogger as any).internalLogger = null;
     ContextLogger.init(mockLogger);
-    
+
     contextLogger = new ContextLogger(MODULE_NAME);
   });
 
@@ -59,7 +59,7 @@ describe('ContextLogger', () => {
 
       expect(mockLogger.log).toHaveBeenCalledWith(CONTEXT, message, MODULE_NAME);
     });
-    
+
     it('should call log method when info is called', () => {
       const message = 'Test message';
       const bindings = { someBinding: 'value' };
@@ -245,7 +245,7 @@ describe('ContextLogger', () => {
         // Reset the internal logger for each test to ensure clean state
         (ContextLogger as any).internalLogger = null;
       });
-      
+
       it('should group only bindings when bindingsKey provided', () => {
         const logger = new ContextLogger(MODULE_NAME);
         ContextLogger.init(mockLogger, { groupFields: { bindingsKey: 'params' } });
@@ -318,7 +318,7 @@ describe('ContextLogger', () => {
         // Reset the internal logger for each test to ensure clean state
         (ContextLogger as any).internalLogger = null;
       });
-      
+
       it('should group both bindings and context under specified keys', () => {
         const logger = new ContextLogger(MODULE_NAME);
         ContextLogger.init(mockLogger, {
@@ -369,7 +369,7 @@ describe('ContextLogger', () => {
       // Reset the internal logger for each test to ensure clean state
       (ContextLogger as any).internalLogger = null;
     });
-    
+
     it('should adapt context when adapter is provided', () => {
       const logger = new ContextLogger(MODULE_NAME);
       ContextLogger.init(mockLogger, {
@@ -413,7 +413,7 @@ describe('ContextLogger', () => {
       // Reset the internal logger for each test to ensure clean state
       (ContextLogger as any).internalLogger = null;
     });
-    
+
     it('should ignore bootstrap logs when ignoreBootstrapLogs is true', () => {
       const logger = new ContextLogger(MODULE_NAME);
       ContextLogger.init(mockLogger, { ignoreBootstrapLogs: true });
@@ -450,6 +450,67 @@ describe('ContextLogger', () => {
         'Mapped {/api/users, GET} route',
         MODULE_NAME
       );
+    });
+  });
+
+  describe('hook functions', () => {
+    it('should call hook function when provided', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      const logMessage = 'Test message';
+      const bindings = { someBinding: 'value' };
+      const hookSpy = jest.fn();
+
+      ContextLogger.init(mockLogger, {
+        hooks: {
+          log: [hookSpy],
+        },
+      });
+
+      logger.log(logMessage, bindings);
+
+      expect(hookSpy).toHaveBeenCalledWith(logMessage, { ...bindings, ...CONTEXT });
+    });
+
+    it('should call multiple hook function when provided', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      const logMessage = 'Test message';
+      const bindings = { someBinding: 'value' };
+      const hookSpy1 = jest.fn();
+      const hookSpy2 = jest.fn();
+      const hookSpy3 = jest.fn();
+
+      ContextLogger.init(mockLogger, {
+        hooks: {
+          log: [hookSpy1, hookSpy2, hookSpy3],
+        },
+      });
+
+      logger.log(logMessage, bindings);
+
+      expect(hookSpy1).toHaveBeenCalledWith(logMessage, { ...bindings, ...CONTEXT });
+      expect(hookSpy2).toHaveBeenCalledWith(logMessage, { ...bindings, ...CONTEXT });
+      expect(hookSpy3).toHaveBeenCalledWith(logMessage, { ...bindings, ...CONTEXT });
+    });
+
+    it('should call \'all\' hook function when provided', () => {
+      const logger = new ContextLogger(MODULE_NAME);
+      const logMessage = 'Test message';
+      const bindings = { someBinding: 'value' };
+      const hookSpy = jest.fn();
+      const allHookSpy = jest.fn();
+
+      ContextLogger.init(mockLogger, {
+        hooks: {
+          log: [hookSpy],
+          all: [allHookSpy],
+        },
+      });
+
+      logger.log(logMessage, bindings);
+      logger.debug(logMessage, bindings);
+
+      expect(hookSpy).toHaveBeenCalledTimes(1);
+      expect(allHookSpy).toHaveBeenCalledTimes(2);
     });
   });
 });
