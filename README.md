@@ -320,6 +320,34 @@ flowchart TB
 - Efficient context storage with `async_hooks` [AsyncLocalStorage](https://nodejs.org/api/async_hooks.html)
 - Minimal overhead compared to standard logging
 
+## 🪝 Hooks
+- Execute callbacks when logs are created
+- Support for level-specific hooks (`log`, `debug`, `warn`, `error`)
+- Global hooks that run for all log levels
+- Useful for metrics, external reporting, or custom side effects
+
+Example usage:
+```typescript
+ContextLoggerModule.forRoot({
+  hooks: {
+    // Run for all log levels
+    all: [
+      (message, bindings) => {
+        metrics.increment('log.count');
+      }
+    ],
+    // Run only for errors
+    error: [
+      (message, bindings) => {
+        errorReporting.notify(message, bindings);
+      }
+    ]
+  }
+})
+```
+
+⚠️ Note: Hooks are executed synchronously and sequentially. Use with caution as they can introduce latency to the logging process.
+
 ## 🔌 Integration Support (Platform Agnostic)
 - [Fastify](https://fastify.dev/) compatible
 - [Express](https://expressjs.com/) compatible
@@ -334,6 +362,7 @@ flowchart TB
 | `groupFields` | Object | undefined | Group log fields under specific keys |
 | `contextAdapter` | Function | undefined | Transform context before logging |
 | `ignoreBootstrapLogs` | boolean | false | Control framework bootstrap logs |
+| `hooks` | Object | undefined | Callbacks to execute when logs are created |
 
 # API Reference
 
