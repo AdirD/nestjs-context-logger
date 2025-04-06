@@ -62,20 +62,24 @@ export interface ContextLoggerFactoryOptions extends Params {
   ) => Record<string, any> | Promise<Record<string, any>>;
 
   /**
-   * Optional functions to run when a log is created.
-   * These functions can be used to do additional staff with the log message and bindings.
-   * For example, you can call an external service or add to a otel counter.
+   * Optional hooks to execute when a log is created.
+   * These callbacks allow you to extend logging behavior, such as reporting to external systems,
+   * incrementing metrics, or performing side effects based on log level.
+   *
+   * ⚠️ Note: All callbacks are executed **synchronously and sequentially**.
+   * This means each hook will block the next one, potentially introducing latency
+   * to the logging process. Use with caution, especially when performing async-like tasks.
    *
    * @example
    * hooks: {
    *   all: [
    *     (message: string, bindings: Bindings) => {
-   *      // do something for all logs
+   *       // do something for all logs
    *     },
    *   ],
    *   error: [
    *     (message: string, bindings: Bindings) => {
-   *      // do something for error logs
+   *       // do something specific for error logs
    *     },
    *   ],
    * }
