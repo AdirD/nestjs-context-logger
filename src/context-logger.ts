@@ -1,15 +1,9 @@
-import { Logger as NestLogger } from '@nestjs/common';
+import { LogLevel, Logger as NestLogger } from '@nestjs/common';
 import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { ContextStore } from './store/context-store';
 import { omitBy, isNil, isEmpty } from 'lodash';
 import { ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
-
-type Bindings = Record<string, any>;
-
-export interface LogEntry {
-  [key: string]: any;
-  err?: Error | string;
-}
+import { Bindings, LogEntry } from './types';
 
 export class ContextLogger {
   private static internalLogger: NestJSPinoLogger;
@@ -85,7 +79,7 @@ export class ContextLogger {
     this.callInternalLogger('error', message, adaptedBindings, error);
   }
 
-  private callInternalLogger(level: string, message: string, bindings: Bindings, error?: Error | string) {
+  private callInternalLogger(level: LogLevel, message: string, bindings: Bindings, error?: Error | string) {
     // If it's a bootstrap log and ignoreBootstrapLogs is true, do nothing
     if (typeof bindings === 'string' && ContextLogger.options?.ignoreBootstrapLogs) {
       return;
@@ -99,6 +93,7 @@ export class ContextLogger {
       logObject = this.createLogEntry(bindings, error);
     }
     const logger = ContextLogger.internalLogger ?? this.fallbackLogger;
+    this.callHooks(level, message, logObject);
     return logger[level](logObject, ...[message, this.moduleName]);
   }
 
@@ -132,5 +127,19 @@ export class ContextLogger {
     }
 
     return { [key]: obj };
+  }
+
+  private callHooks(level: LogLevel, message: string, bindings: Bindings): void {
+    const hooks = ContextLogger.options?.hooks;
+
+    if (!hooks) {
+      return;
+    }
+
+    [...(hooks[level] || []), ...(hooks['all'] || [])].forEach((hook) => {
+      hook(message, bindings);
+    });
+
+    return;
   }
 }
