@@ -64,6 +64,22 @@ describe('RequestInterceptor', () => {
       );
     });
 
+    it('should handle request with empty request context', async () => {
+      const emptyRequestContext = { };
+      (mockContext.switchToHttp().getRequest as jest.Mock).mockReturnValue(emptyRequestContext);
+      
+      const observable = await interceptor.intercept(mockContext, mockCallHandler);
+      await lastValueFrom(observable);
+
+      expect(ContextLogger.updateContext).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requestMethod: undefined,
+          requestUrl: undefined
+        })
+      );
+      expect(mockLogger.debug).toHaveBeenCalled();
+    });
+
     it('should skip context and logging for excluded routes', async () => {
       mockRequest.url = '/health';
       

@@ -24,10 +24,16 @@ export class RequestInterceptor implements NestInterceptor {
     next: CallHandler
   ): Promise<Observable<any>> {
     const request = context.switchToHttp().getRequest();
-    if (this.options.exclude?.some(pattern => request.url.indexOf(pattern) === 0)) {
+
+    if (
+      request.url &&
+      this.options.exclude?.some(
+        (pattern) => request.url.indexOf(pattern) === 0
+      )
+    ) {
       return next.handle();
     }
-    
+
     const startTime = new Date();
 
     // Base context
