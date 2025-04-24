@@ -54,8 +54,25 @@ export class ContextLogger {
     this.callInternalLogger('warn', message, (bindings ?? {}));
   }
 
-  fatal(message: string, bindings?: Bindings) {
-    this.callInternalLogger('fatal', message, (bindings ?? {}));
+  fatal(message: string): void;
+  fatal(message: string, error: Error): void;
+  fatal(message: string, bindings: Bindings): void;
+  fatal(message: string, error: Error, bindings: Bindings): void;
+  fatal(message: string, errorOrBindings?: Error | Bindings, bindings?: Bindings): void {
+    let error;
+    const adaptedBindings = {};
+    if (errorOrBindings instanceof Error) {
+      error = errorOrBindings;
+      if (bindings) {
+        Object.assign(adaptedBindings, bindings);
+      }
+      // Bootstrapping logs
+    } else if (typeof errorOrBindings === 'string') {
+      error = errorOrBindings;
+    } else if (errorOrBindings) {
+      Object.assign(adaptedBindings, errorOrBindings);
+    }
+    this.callInternalLogger('fatal', message, adaptedBindings, error);
   }
 
   error(message: string): void;
