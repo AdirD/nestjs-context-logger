@@ -59,23 +59,6 @@ export class ContextLogger {
   fatal(message: string, bindings: Bindings): void;
   fatal(message: string, error: Error, bindings: Bindings): void;
   fatal(message: string, errorOrBindings?: Error | Bindings, bindings?: Bindings): void {
-    const { error, adaptedBindings } = this.processLogParameters(errorOrBindings, bindings);
-    this.callInternalLogger('fatal', message, adaptedBindings, error);
-  }
-
-  error(message: string): void;
-  error(message: string, error: Error): void;
-  error(message: string, bindings: Bindings): void;
-  error(message: string, error: Error, bindings: Bindings): void;
-  error(message: string, errorOrBindings?: Error | Bindings, bindings?: Bindings): void {
-    const { error, adaptedBindings } = this.processLogParameters(errorOrBindings, bindings);
-    this.callInternalLogger('error', message, adaptedBindings, error);
-  }
-
-  private processLogParameters(
-    errorOrBindings?: Error | Bindings,
-    bindings?: Bindings
-  ): { error: Error | undefined; adaptedBindings: Bindings } {
     let error: Error | undefined;
     const adaptedBindings: Bindings = {};
 
@@ -90,7 +73,29 @@ export class ContextLogger {
       Object.assign(adaptedBindings, errorOrBindings);
     }
 
-    return { error, adaptedBindings };
+    this.callInternalLogger('fatal', message, adaptedBindings, error);
+  }
+
+  error(message: string): void;
+  error(message: string, error: Error): void;
+  error(message: string, bindings: Bindings): void;
+  error(message: string, error: Error, bindings: Bindings): void;
+  error(message: string, errorOrBindings?: Error | Bindings, bindings?: Bindings): void {
+    let error: Error | undefined;
+    const adaptedBindings: Bindings = {};
+
+    if (errorOrBindings instanceof Error) {
+      error = errorOrBindings;
+      if (bindings) {
+        Object.assign(adaptedBindings, bindings);
+      }
+    } else if (typeof errorOrBindings === 'string') {
+      error = errorOrBindings;
+    } else if (errorOrBindings) {
+      Object.assign(adaptedBindings, errorOrBindings);
+    }
+
+    this.callInternalLogger('error', message, adaptedBindings, error);
   }
 
   private callInternalLogger(level: LogLevel, message: string, bindings: Bindings, error?: Error | string) {
