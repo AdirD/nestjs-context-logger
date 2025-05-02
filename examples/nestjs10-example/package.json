@@ -1,7 +1,7 @@
 {
-  "name": "nestjs10-example",
+  "name": "nestjs11-example",
   "version": "1.0.0",
-  "description": "Example NestJS 10 app using nestjs-context-logger",
+  "description": "Example NestJS 11 app using nestjs-context-logger",
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
