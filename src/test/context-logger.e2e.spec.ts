@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, Controller, Get, Injectable, ExecutionContext, DynamicModule } from '@nestjs/common';
+import { INestApplication, Controller, Get, Injectable, ExecutionContext } from '@nestjs/common';
 import { ContextLogger } from '../context-logger';
 import { ContextLoggerModule } from '../context-logger.module';
 import * as request from 'supertest';
