@@ -102,6 +102,8 @@ export class ContextLogger {
     // If it's a bootstrap log and ignoreBootstrapLogs is true, do nothing
     if (typeof bindings === 'string' && ContextLogger.options?.ignoreBootstrapLogs) {
       return;
+    } else if (!ContextLogger.internalLogger && this.fallbackLogger.localInstance instanceof ContextLogger) {
+      return console[level](message);
     }
 
     let logObject: Record<string, any>;
