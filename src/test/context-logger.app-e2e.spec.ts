@@ -1,7 +1,7 @@
 import { INestApplication, Injectable, Module } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { ContextLoggerModule } from './context-logger.module';
-import { ContextLogger } from './context-logger';
+import { ContextLoggerModule } from '../context-logger.module';
+import { ContextLogger } from '../context-logger';
 
 describe("ContextLogger with full nestjs application", () => {
   let processExitSpy: jest.SpyInstance;
