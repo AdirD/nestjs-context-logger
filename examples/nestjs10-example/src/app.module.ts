@@ -3,7 +3,19 @@ import { ContextLoggerModule } from 'nestjs-context-logger';
 import { AppController } from './app.controller';
 import { VersionMiddleware } from './middleware/version.middleware';
 
-// Using type assertion to handle the NestJS 10/11 compatibility issue
+@Module({
+  controllers: [AppController],
+  providers: [],
+})
+export class ExampleModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) { 
+    consumer
+      .apply(VersionMiddleware)
+      .forRoutes('*');
+  }
+}
+
+
 @Module({
   imports: [
     ContextLoggerModule.forRoot({
@@ -12,14 +24,8 @@ import { VersionMiddleware } from './middleware/version.middleware';
         level: 'info',
       },
     }),
+    ExampleModule,
   ],
-  controllers: [AppController],
   providers: [],
 })
-export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer
-      .apply(VersionMiddleware)
-      .forRoutes('*');
-  }
-} 
+export class AppModule {} 
