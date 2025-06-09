@@ -1,0 +1,30 @@
+{
+  "name": "nestjs11-example",
+  "version": "1.0.0",
+  "description": "Example NestJS 11 app using nestjs-context-logger",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "dev": "ts-node src/main.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "nestjs-pino": "^4.4.0",
+    "pino": "^9.7.0",
+    "reflect-metadata": "^0.1.13",
+    "rxjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "nestjs-context-logger": "file:../..",
+    "pino-pretty": "^13.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}

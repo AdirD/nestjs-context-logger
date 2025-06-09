@@ -7,6 +7,7 @@ describe('ContextLogger', () => {
   const spyDebug = jest.fn();
   const spyWarn = jest.fn();
   const spyError = jest.fn();
+  const spyFatal = jest.fn();
   const MODULE_NAME = 'TestModule';
   const CONTEXT = { someContextField: 'someContextValue' };
 
@@ -24,6 +25,7 @@ describe('ContextLogger', () => {
       info: spyInfo,
       warn: spyWarn,
       error: spyError,
+      fatal: spyFatal,
     };
 
     // Reset the internal logger for each test to ensure clean state
@@ -75,41 +77,41 @@ describe('ContextLogger', () => {
     });
   });
 
-  describe('error method', () => {
-    it('should call internal logger with error message only', () => {
+  describe('error, fatal methods', () => {
+    it.each(['error', 'fatal'])('should call internal logger with error message only', (method) => {
       const message = 'Error message';
 
-      contextLogger.error(message);
+      contextLogger[method](message);
 
-      expect(mockLogger.error).toHaveBeenCalledWith(CONTEXT, message, MODULE_NAME);
+      expect(mockLogger[method]).toHaveBeenCalledWith(CONTEXT, message, MODULE_NAME);
     });
 
-    it('should call internal logger with error message and Error object', () => {
+    it.each(['error', 'fatal'])('should call internal logger with error message and Error object', (method) => {
       const message = 'Error message';
       const error = new Error('Test error');
 
-      contextLogger.error(message, error);
+      contextLogger[method](message, error);
 
-      expect(mockLogger.error).toHaveBeenCalledWith({ err: error, ...CONTEXT }, message, MODULE_NAME);
+      expect(mockLogger[method]).toHaveBeenCalledWith({ err: error, ...CONTEXT }, message, MODULE_NAME);
     });
 
-    it('should call internal logger with error message and bindings', () => {
+    it.each(['error', 'fatal'])('should call internal logger with error message and bindings', (method) => {
       const message = 'Error message';
       const bindings = { someBinding: 'value' };
 
-      contextLogger.error(message, bindings);
+      contextLogger[method](message, bindings);
 
-      expect(mockLogger.error).toHaveBeenCalledWith({ ...bindings, ...CONTEXT }, message, MODULE_NAME);
+      expect(mockLogger[method]).toHaveBeenCalledWith({ ...bindings, ...CONTEXT }, message, MODULE_NAME);
     });
 
-    it('should call internal logger with error message, Error object, and bindings', () => {
+    it.each(['error', 'fatal'])('should call internal logger with error message, Error object, and bindings', (method) => {
       const message = 'Error message';
       const error = new Error('Test error');
       const bindings = { someBinding: 'value' };
 
-      contextLogger.error(message, error, bindings);
+      contextLogger[method](message, error, bindings);
 
-      expect(mockLogger.error).toHaveBeenCalledWith(
+      expect(mockLogger[method]).toHaveBeenCalledWith(
         { err: error, ...bindings, ...CONTEXT },
         message,
         MODULE_NAME
@@ -156,55 +158,6 @@ describe('ContextLogger', () => {
       ContextLogger.updateContext(newContext);
 
       expect(spyUpdateContext).toHaveBeenCalledWith(newContext);
-    });
-  });
-
-  describe('bootstrap and fallback logger behavior', () => {
-    const MODULE_NAME = 'BootstrapTest';
-    let contextLogger: ContextLogger;
-    let fallbackLoggerSpy: jest.SpyInstance;
-
-    beforeEach(() => {
-      // Reset the internal logger to simulate bootstrap phase
-      (ContextLogger as any).internalLogger = null;
-      contextLogger = new ContextLogger(MODULE_NAME);
-      fallbackLoggerSpy = jest.spyOn(contextLogger['fallbackLogger'], 'log');
-    });
-
-    afterEach(() => {
-      fallbackLoggerSpy.mockRestore();
-      // Restore the internal logger
-      ContextLogger.init(mockLogger);
-    });
-
-    it('should handle bootstrap component logs with string bindings', () => {
-      const message = 'Mapped {/api/users, GET} route';
-      const component = 'RouterExplorer';
-
-      // @ts-expect-error - Simulate bootstrap phase
-      contextLogger.log(message, component);
-
-      expect(fallbackLoggerSpy).toHaveBeenCalledWith(
-        { component },
-        message,
-        MODULE_NAME
-      );
-    });
-
-    it('should handle regular bindings after bootstrap', () => {
-      const message = 'Regular log';
-      const bindings = { someBinding: 'value' };
-
-      // Initialize logger to exit bootstrap phase
-      ContextLogger.init(mockLogger as any);
-
-      contextLogger.log(message, bindings);
-
-      expect(mockLogger.log).toHaveBeenCalledWith(
-        { ...bindings, ...CONTEXT },
-        message,
-        MODULE_NAME
-      );
     });
   });
 

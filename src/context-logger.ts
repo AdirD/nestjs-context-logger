@@ -1,4 +1,4 @@
-import { LogLevel, Logger as NestLogger } from '@nestjs/common';
+import { LogLevel } from '@nestjs/common';
 import { Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { ContextStore } from './store/context-store';
 import { omitBy, isNil, isEmpty } from 'lodash';
@@ -8,7 +8,6 @@ import { Bindings, LogEntry } from './types';
 export class ContextLogger {
   private static internalLogger: NestJSPinoLogger;
   private static options: ContextLoggerFactoryOptions;
-  private readonly fallbackLogger = new NestLogger();
 
   constructor(private moduleName: string) { }
 
@@ -54,8 +53,26 @@ export class ContextLogger {
     this.callInternalLogger('warn', message, (bindings ?? {}));
   }
 
-  fatal(message: string, bindings?: Bindings) {
-    this.callInternalLogger('fatal', message, (bindings ?? {}));
+  fatal(message: string): void;
+  fatal(message: string, error: Error): void;
+  fatal(message: string, bindings: Bindings): void;
+  fatal(message: string, error: Error, bindings: Bindings): void;
+  fatal(message: string, errorOrBindings?: Error | Bindings, bindings?: Bindings): void {
+    let error: Error | undefined;
+    const adaptedBindings: Bindings = {};
+
+    if (errorOrBindings instanceof Error) {
+      error = errorOrBindings;
+      if (bindings) {
+        Object.assign(adaptedBindings, bindings);
+      }
+    } else if (typeof errorOrBindings === 'string') {
+      error = errorOrBindings;
+    } else if (errorOrBindings) {
+      Object.assign(adaptedBindings, errorOrBindings);
+    }
+
+    this.callInternalLogger('fatal', message, adaptedBindings, error);
   }
 
   error(message: string): void;
@@ -63,19 +80,20 @@ export class ContextLogger {
   error(message: string, bindings: Bindings): void;
   error(message: string, error: Error, bindings: Bindings): void;
   error(message: string, errorOrBindings?: Error | Bindings, bindings?: Bindings): void {
-    let error;
-    const adaptedBindings = {};
+    let error: Error | undefined;
+    const adaptedBindings: Bindings = {};
+
     if (errorOrBindings instanceof Error) {
       error = errorOrBindings;
       if (bindings) {
         Object.assign(adaptedBindings, bindings);
       }
-      // Bootstrapping logs
     } else if (typeof errorOrBindings === 'string') {
       error = errorOrBindings;
     } else if (errorOrBindings) {
       Object.assign(adaptedBindings, errorOrBindings);
     }
+
     this.callInternalLogger('error', message, adaptedBindings, error);
   }
 
@@ -83,6 +101,8 @@ export class ContextLogger {
     // If it's a bootstrap log and ignoreBootstrapLogs is true, do nothing
     if (typeof bindings === 'string' && ContextLogger.options?.ignoreBootstrapLogs) {
       return;
+    } else if (!ContextLogger.internalLogger) {
+      return console[level](message);
     }
 
     let logObject: Record<string, any>;
@@ -92,9 +112,8 @@ export class ContextLogger {
     } else {
       logObject = this.createLogEntry(bindings, error);
     }
-    const logger = ContextLogger.internalLogger ?? this.fallbackLogger;
     this.callHooks(level, message, logObject);
-    return logger[level](logObject, ...[message, this.moduleName]);
+    return ContextLogger.internalLogger[level](logObject, ...[message, this.moduleName]);
   }
 
   private createLogEntry(
