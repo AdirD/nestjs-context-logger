@@ -366,6 +366,157 @@ ContextLoggerModule.forRoot({
 
 # API Reference
 
+## @WithContext Decorator
+
+The `@WithContext` decorator enables context initialization for NestJS message patterns, event patterns, and cron jobs - anywhere you need logging context outside of HTTP requests.
+
+### Import
+
+```typescript
+import { WithContext } from 'nestjs-context-logger';
+```
+
+### Basic Usage
+
+```typescript
+@Injectable()
+export class UserService {
+  private readonly logger = new ContextLogger(UserService.name);
+
+  @WithContext()
+  @MessagePattern('user.created')
+  async handleUserCreated(data: CreateUserDto) {
+    this.logger.log('Processing user creation'); 
+    // Output: { "correlationId": "uuid-123", "message": "Processing user creation" }
+  }
+
+  @WithContext()
+  @EventPattern('user.updated') 
+  async handleUserUpdated(data: UpdateUserDto) {
+    this.logger.log('User was updated');
+    // Output: { "correlationId": "uuid-456", "message": "User was updated" }
+  }
+
+  @WithContext()
+  @Cron('0 0 * * *')
+  async dailyReport() {
+    this.logger.log('Running daily report');
+    // Output: { "correlationId": "uuid-789", "message": "Running daily report" }
+  }
+}
+```
+
+### Advanced Usage with Initial Context
+
+You can provide initial context data that will be merged with the auto-generated `correlationId`:
+
+```typescript
+@Injectable()
+export class PaymentService {
+  private readonly logger = new ContextLogger(PaymentService.name);
+
+  @WithContext({ 
+    service: 'PaymentService',
+    environment: process.env.NODE_ENV 
+  })
+  @MessagePattern('payment.process')
+  async handlePayment(data: PaymentDto) {
+    this.logger.log('Processing payment', { amount: data.amount });
+    // Output: {
+    //   "correlationId": "uuid-123",
+    //   "service": "PaymentService", 
+    //   "environment": "production",
+    //   "amount": 100.50,
+    //   "message": "Processing payment"
+    // }
+  }
+
+  @WithContext({ jobType: 'cleanup' })
+  @Cron(CronExpression.EVERY_HOUR)
+  async cleanupExpiredSessions() {
+    const count = await this.cleanupSessions();
+    this.logger.log('Cleanup completed', { sessionsCleaned: count });
+    // Output: {
+    //   "correlationId": "uuid-456", 
+    //   "jobType": "cleanup",
+    //   "sessionsCleaned": 42,
+    //   "message": "Cleanup completed"
+    // }
+  }
+}
+```
+
+### Use Cases
+
+**Message Patterns** - Perfect for microservice request-response handlers:
+```typescript
+@WithContext({ pattern: 'user.validate' })
+@MessagePattern('user.validate')
+async validateUser(@Payload() data: ValidateUserDto) {
+  this.logger.log('Validating user credentials');
+}
+```
+
+**Event Patterns** - Ideal for event-driven architecture:
+```typescript  
+@WithContext({ eventType: 'domain.event' })
+@EventPattern('order.completed')
+async onOrderCompleted(@Payload() event: OrderCompletedEvent) {
+  this.logger.log('Order completion detected', { orderId: event.orderId });
+}
+```
+
+**Cron Jobs** - Essential for scheduled task logging:
+```typescript
+@WithContext({ 
+  task: 'data-sync',
+  priority: 'high'
+})
+@Cron('0 2 * * *') // Every day at 2 AM
+async syncUserData() {
+  this.logger.log('Starting user data synchronization');
+}
+```
+
+**Custom Handlers** - Works with any method that needs context:
+```typescript
+@WithContext({ operation: 'background-task' })
+async processLargeDataset(data: any[]) {
+  this.logger.log('Processing dataset', { itemCount: data.length });
+  // Process data...
+  this.logger.log('Dataset processing completed');
+}
+```
+
+### Context Updates
+
+Within decorated methods, you can update the context using `ContextLogger.updateContext()`:
+
+```typescript
+@WithContext({ service: 'EmailService' })
+@MessagePattern('email.send')
+async sendEmail(@Payload() emailData: EmailDto) {
+  this.logger.log('Starting email send');
+  
+  // Update context with additional info
+  ContextLogger.updateContext({ 
+    recipientCount: emailData.recipients.length,
+    template: emailData.template 
+  });
+  
+  await this.deliveryService.send(emailData);
+  this.logger.log('Email sent successfully');
+  // All subsequent logs will include the updated context
+}
+```
+
+### Benefits
+
+- **Automatic Context Isolation**: Each decorated method execution gets its own context
+- **Zero Configuration**: Works out of the box with sensible defaults
+- **Flexible**: Supports any initial context data you need
+- **Performance**: Minimal overhead using AsyncLocalStorage
+- **Compatible**: Works with all NestJS patterns (@MessagePattern, @EventPattern, @Cron, etc.)
 
 # Best Practices
 
