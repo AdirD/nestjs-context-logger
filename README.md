@@ -366,6 +366,150 @@ ContextLoggerModule.forRoot({
 
 # API Reference
 
+## @WithContext Decorator
+
+The `@WithContext` decorator enables context initialization for NestJS message patterns, event patterns, cron jobs, and any method that needs logging context outside of HTTP requests. It creates a new context scope that merges with any existing context.
+
+### How It Works
+
+`@WithContext` creates a new AsyncLocalStorage scope for the decorated method. Any existing context is merged with the decorator's context, with the decorator's values taking precedence. When the method completes, the previous context is restored.
+
+### Basic Usage
+
+```typescript
+import { WithContext } from 'nestjs-context-logger';
+
+@Injectable()
+export class UserService {
+  private readonly logger = new ContextLogger(UserService.name);
+
+  @WithContext({ service: 'UserService' })
+  @MessagePattern('user.created')
+  async handleUserCreated(data: CreateUserDto) {
+    this.logger.log('Processing user creation');
+    // Output: { service: 'UserService', message: "Processing user creation" }
+  }
+
+  @WithContext(() => ({ correlationId: uuid(), operation: 'validation' }))
+  @MessagePattern('user.validate')
+  async validateUser(data: ValidateUserDto) {
+    this.logger.log('Validating user');
+    // Output: { operation: 'validation', correlationId: 'some-uuid'}
+  }
+}
+```
+
+### Static vs Dynamic Context
+
+- **Static object**: `@WithContext({ key: 'value' })` - Values are set once when the class is defined
+- **Function**: `@WithContext(() => ({ key: 'value' }))` - Values are computed fresh for each method invocation
+
+Use functions when you need unique values like correlation IDs or timestamps for each method call.
+
+### Context Merging Behavior
+
+When `@WithContext` is used within an existing context (like HTTP requests), it merges contexts:
+
+```typescript
+@Controller('users')
+export class UserController {
+  @Get(':id')
+  async getUser(@Param('id') id: string) {
+    // HTTP context: { correlationId: "req-123", requestMethod: "GET" }
+    await this.userService.processUser(id);
+    // Context restored after method completes
+  }
+}
+
+@Injectable()
+export class UserService {
+  @WithContext({ service: 'UserService', operation: 'process' })
+  async processUser(id: string) {
+    // Merged context: { 
+    //   correlationId: "req-123",     // inherited from HTTP request
+    //   requestMethod: "GET",         // inherited from HTTP request  
+    //   service: 'UserService',       // from decorator
+    //   operation: 'process'          // from decorator
+    // }
+  }
+}
+```
+
+### Nested Decorators
+
+When `@WithContext` methods call other `@WithContext` methods, each creates its own merged scope:
+
+```typescript
+@Injectable()
+export class NestedService {
+  @WithContext({ level: 'outer' })
+  async outerMethod() {
+    // Context: { level: 'outer' }
+    await this.innerMethod();
+    // Context restored: { level: 'outer' }
+  }
+
+  @WithContext({ level: 'inner', step: 'processing' })
+  async innerMethod() {
+    // Merged context: { level: 'inner', step: 'processing' }
+    // Note: 'level' from outer context is overridden
+  }
+}
+```
+
+### Common Use Cases
+
+**Message Handlers**: Add service identification and correlation tracking
+```typescript
+@WithContext(() => ({ correlationId: uuid(), handler: 'user.validate' }))
+@MessagePattern('user.validate')
+async validateUser(@Payload() data: ValidateUserDto) {
+  this.logger.log('Validating user credentials');
+}
+```
+
+**Cron Jobs**: Track scheduled task execution
+```typescript
+@WithContext(() => ({ 
+  task: 'data-sync',
+  executionId: uuid(),
+  scheduledAt: new Date().toISOString()
+}))
+@Cron('0 2 * * *')
+async syncUserData() {
+  this.logger.log('Starting user data synchronization');
+}
+```
+
+**Background Operations**: Isolate context for async operations
+```typescript
+@WithContext(() => ({ operation: 'email-processing', batchId: uuid() }))
+async processEmailBatch(emails: Email[]) {
+  this.logger.log('Processing email batch', { count: emails.length });
+}
+```
+
+### When to Use @WithContext vs updateContext()
+
+**Use `@WithContext` for:**
+- Message handlers, event handlers, cron jobs
+- Background tasks that need their own correlation IDs
+- Methods that should have consistent base context
+- Testing scenarios where you want predictable context
+
+**Use `ContextLogger.updateContext()` for:**
+- Adding fields to existing HTTP request context
+- Enriching context within a method's execution
+- Preserving existing correlation IDs
+
+### Benefits
+
+- **Context Merging**: Inherits existing context while adding new fields
+- **Automatic Cleanup**: Context is restored when the method completes
+- **Dynamic Values**: Support for functions to generate fresh values per invocation
+- **Zero Configuration**: Works immediately with any NestJS pattern
+- **Performance**: Minimal overhead using AsyncLocalStorage
+- **Compatible**: Works with all NestJS patterns (@MessagePattern, @EventPattern, @Cron, etc.)
 
 # Best Practices
 
@@ -531,6 +675,73 @@ Context can be lost in several scenarios:
 setTimeout(() => {
   logger.info('Task done');  // No context available
 }, 1000);
+
+// ✅ Use @WithContext for background operations
+@WithContext(() => ({ operation: 'background-timer', correlationId: uuid() }))
+async backgroundTask() {
+  setTimeout(() => {
+    this.logger.info('Task done');  // Context available!
+  }, 1000);
+}
+```
+
+## Q: How does @WithContext interact with HTTP request context?
+
+`@WithContext` **merges** with existing HTTP request context, inheriting existing fields while adding new ones:
+
+```typescript
+@Controller('users')
+export class UserController {
+  @Get(':id')
+  async getUser(@Param('id') id: string) {
+    // HTTP context: { correlationId: "req-123", requestMethod: "GET" }
+    await this.userService.processUser(id);
+    // HTTP context restored: { correlationId: "req-123", requestMethod: "GET" }
+  }
+}
+
+@Injectable()
+export class UserService {
+  @WithContext({ service: 'UserService' })
+  async processUser(id: string) {
+    // Merged context: { 
+    //   correlationId: "req-123",  // inherited from HTTP request
+    //   requestMethod: "GET",      // inherited from HTTP request
+    //   service: 'UserService'     // added by decorator
+    // }
+  }
+}
+```
+
+## Q: What happens with nested @WithContext decorators?
+
+Each `@WithContext` merges with the current context. Nested calls inherit the parent's context and add their own fields:
+
+```typescript
+@Injectable()
+export class NestedService {
+  @WithContext({ level: 'outer', operation: 'parent' })
+  async outerMethod() {
+    // Context: { level: 'outer', operation: 'parent' }
+    await this.innerMethod();
+    // Context restored: { level: 'outer', operation: 'parent' }
+  }
+
+  @WithContext({ level: 'inner', operation: 'child' })
+  async innerMethod() {
+    // Merged context: { 
+    //   level: 'inner',      // overrides outer 'level'
+    //   operation: 'child'   // overrides outer 'operation'
+    // }
+  }
+}
+```
+
+## Q: When should I use @WithContext vs regular context updates?
+
+Use `@WithContext` when you need:
+- **Method-level context setup** for message handlers, cron jobs, or event handlers
+- **Custom method values** like method execution IDs that should be fresh for each method call
 
 ```
 ## Q: Why do my bootstrap logs look different than request logs?
