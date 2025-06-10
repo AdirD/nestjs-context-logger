@@ -190,7 +190,7 @@ describe('WithContext Decorator', () => {
     });
   });
 
-  describe('Nested Context Behavior', () => {
+  describe('Nested Context Behavior (Context Property Merging)', () => {
     class NestedTestClass {
       @WithContext({ outerMethod: true, level: 'outer' })
       outerMethod() {
@@ -273,7 +273,7 @@ describe('WithContext Decorator', () => {
       nestedTestClass = new NestedTestClass();
     });
 
-    it('should create separate contexts for nested WithContext decorators', () => {
+    it('should merge contexts for nested WithContext decorators', () => {
       const result = nestedTestClass.outerMethod();
 
       // Outer context should have its own correlationId and properties
@@ -282,13 +282,13 @@ describe('WithContext Decorator', () => {
       expect(result.outerContext).toHaveProperty('level', 'outer');
       expect(result.outerContext).not.toHaveProperty('innerMethod');
 
-      // Inner context should have completely different correlationId and properties
+      // Inner context should merge with outer context, inheriting properties
       expect(result.innerResult.innerContext).toHaveProperty('correlationId');
       expect(result.innerResult.innerContext).toHaveProperty('innerMethod', true);
-      expect(result.innerResult.innerContext).toHaveProperty('level', 'inner');
-      expect(result.innerResult.innerContext).not.toHaveProperty('outerMethod');
+      expect(result.innerResult.innerContext).toHaveProperty('level', 'inner'); // inner overrides outer
+      expect(result.innerResult.innerContext).toHaveProperty('outerMethod', true); // inherited from outer
 
-      // CorrelationIds should be different
+      // CorrelationIds should be different (each decorator generates its own)
       expect(result.outerContext.correlationId).not.toBe(
         result.innerResult.innerContext.correlationId
       );
@@ -300,14 +300,14 @@ describe('WithContext Decorator', () => {
       expect(result.outerContextAfterInner).toEqual(result.outerContext);
     });
 
-    it('should handle custom correlationIds in nested contexts', () => {
+    it('should handle custom correlationIds in nested contexts with merging', () => {
       const result = nestedTestClass.outerMethodWithCustomId();
 
       // Outer context should use custom correlationId
       expect(result.outerContext.correlationId).toBe('custom-outer-id');
       expect(result.outerContext.service).toBe('OuterService');
 
-      // Inner context should use its own custom correlationId
+      // Inner context should get its own correlationId but override service
       expect(result.innerResult.innerContext.correlationId).toBe('custom-inner-id');
       expect(result.innerResult.innerContext.service).toBe('InnerService');
 
@@ -316,7 +316,7 @@ describe('WithContext Decorator', () => {
       expect(result.outerContextAfterInner.service).toBe('OuterService');
     });
 
-    it('should isolate context updates between nested methods', () => {
+    it('should merge context updates between nested methods', () => {
       const result = nestedTestClass.chainedMethod();
 
       // Outer method initial context
@@ -327,29 +327,29 @@ describe('WithContext Decorator', () => {
       expect(result.updatedContext).toHaveProperty('operation', 'chain-start');
       expect(result.updatedContext).toHaveProperty('step', 'before-nested-call');
 
-      // Nested method should have its own isolated context
+      // Nested method should inherit outer context and merge with its own
       expect(result.nestedResult.nestedStartContext).toHaveProperty('operation', 'chain-nested');
-      expect(result.nestedResult.nestedStartContext).not.toHaveProperty('step');
+      expect(result.nestedResult.nestedStartContext).toHaveProperty('step', 'before-nested-call'); // inherited from outer
       expect(result.nestedResult.nestedStartContext).not.toHaveProperty('nestedStep');
 
-      // Nested method can update its own context
+      // Nested method can update its merged context
       expect(result.nestedResult.nestedUpdatedContext).toHaveProperty('operation', 'chain-nested');
       expect(result.nestedResult.nestedUpdatedContext).toHaveProperty('nestedStep', 'processing');
-      expect(result.nestedResult.nestedUpdatedContext).not.toHaveProperty('step');
+      expect(result.nestedResult.nestedUpdatedContext).toHaveProperty('step', 'before-nested-call'); // still inherited
 
       // Outer context should be restored unchanged after nested call
       expect(result.finalContext).toHaveProperty('operation', 'chain-start');
       expect(result.finalContext).toHaveProperty('step', 'before-nested-call');
       expect(result.finalContext).not.toHaveProperty('nestedStep');
 
-      // CorrelationIds should be different
+      // CorrelationIds should be different (each decorator generates its own)
       expect(result.finalContext.correlationId).not.toBe(
         result.nestedResult.nestedStartContext.correlationId
       );
     });
 
-    it('should demonstrate context isolation with no interference', () => {
-      // Call method multiple times to ensure no context bleeding
+    it('should demonstrate context merging with no interference between separate executions', () => {
+      // Call method multiple times to ensure no context bleeding between separate executions
       const result1 = nestedTestClass.outerMethod();
       const result2 = nestedTestClass.outerMethod();
 
@@ -359,7 +359,11 @@ describe('WithContext Decorator', () => {
         result2.innerResult.innerContext.correlationId
       );
 
-      // But contexts should have same structure
+      // But within each execution, nested contexts should have different correlationIds
+      expect(result1.outerContext.correlationId).not.toBe(result1.innerResult.innerContext.correlationId);
+      expect(result2.outerContext.correlationId).not.toBe(result2.innerResult.innerContext.correlationId);
+
+      // And contexts should have same structure
       expect(result1.outerContext.outerMethod).toBe(result2.outerContext.outerMethod);
       expect(result1.innerResult.innerContext.innerMethod).toBe(
         result2.innerResult.innerContext.innerMethod
