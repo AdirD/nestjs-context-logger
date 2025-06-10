@@ -7,20 +7,20 @@ import { ContextStore } from '../store/context-store';
  *
  * @example
  * ```typescript
- * @WithContext()
  * @MessagePattern('user.created')
+ * @WithContext()
  * async handleUserCreated(data: CreateUserDto) {
  *   this.logger.log('Processing user creation');
  * }
  *
- * @WithContext({ userId: 'user_123' })
  * @Cron('0 0 * * *')
+ * @WithContext({ userId: 'user_123' })
  * async dailyReport() {
  *   this.logger.log('Running daily report');
  * }
  *
- * @WithContext(() => ({ correlationId: uuid(), service: 'UserService' }))
  * @MessagePattern('user.validate')
+ * @WithContext(() => ({ correlationId: uuid(), service: 'UserService' }))
  * async validateUser(data: ValidateUserDto) {
  *   this.logger.log('Validating user'); // Fresh correlationId each call
  * }
