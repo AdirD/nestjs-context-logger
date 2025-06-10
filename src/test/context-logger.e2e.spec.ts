@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication, Controller, Get, Injectable, ExecutionContext, DynamicModule } from '@nestjs/common';
+import { INestApplication, Controller, Get, Injectable, ExecutionContext } from '@nestjs/common';
 import { ContextLogger } from '../context-logger';
 import { ContextLoggerModule } from '../context-logger.module';
+import { WithContext } from '../decorators/with-context.decorator';
 import * as request from 'supertest';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -152,6 +153,56 @@ class InfoMethodTestController {
   }
 }
 
+@Injectable()
+class WithContextTestService {
+  private readonly logger = new ContextLogger(WithContextTestService.name);
+
+  @WithContext({ serviceContext: 'with-context-service', operation: 'process-data' })
+  async processData(data: any) {
+    this.logger.log('Processing data in service with @WithContext', { data });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    this.logger.log('Data processing completed');
+    return { processed: true, data };
+  }
+
+  // Method without @WithContext for comparison
+  async processDataWithoutDecorator(data: any) {
+    this.logger.log('Processing data without @WithContext', { data });
+    await new Promise(resolve => setTimeout(resolve, 10));
+    this.logger.log('Data processing without decorator completed');
+    return { processed: true, data };
+  }
+}
+
+@Controller()
+class WithContextTestController {
+  private readonly logger = new ContextLogger(WithContextTestController.name);
+
+  constructor(private readonly withContextService: WithContextTestService) {}
+
+  @Get('/with-context-test')
+  async test() {
+    this.logger.log('Controller hit - context initialized by middleware');
+    ContextLogger.updateContext({ controllerContext: 'middleware-initialized' });
+    
+    const result = await this.withContextService.processData({ value: 'test-data' });
+    
+    this.logger.log('Controller completed');
+    return result;
+  }
+
+  @Get('/without-context-test')
+  async testWithoutDecorator() {
+    this.logger.log('Controller hit - for comparison without decorator');
+    ContextLogger.updateContext({ controllerContext: 'middleware-initialized' });
+    
+    const result = await this.withContextService.processDataWithoutDecorator({ value: 'test-data' });
+    
+    this.logger.log('Controller completed');
+    return result;
+  }
+}
+
 describe('ContextLogger E2E', () => {
   let app: INestApplication;
 
@@ -175,8 +226,8 @@ describe('ContextLogger E2E', () => {
           })
         })
       ],
-      controllers: [SimpleTestController, ChainTestController, IsolationATestController, IsolationBTestController, IsolationCTestController, InfoMethodTestController],
-      providers: [ChainTestService]
+      controllers: [SimpleTestController, ChainTestController, IsolationATestController, IsolationBTestController, IsolationCTestController, InfoMethodTestController, WithContextTestController],
+      providers: [ChainTestService, WithContextTestService]
     }).compile();
 
     app = moduleFixture.createNestApplication();
@@ -347,6 +398,149 @@ describe('ContextLogger E2E', () => {
     // The important part is that log was called with the correct parameters
   });
 
+  it('should create isolated context when using @WithContext decorator', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/with-context-test')
+      .set('X-Trace-ID', 'trace-with-context-123')
+      .expect(200);
+
+    expect(response.body).toEqual({ processed: true, data: { value: 'test-data' } });
+    
+    const logCalls = mockNestJSPinoLogger.log.mock.calls;
+    
+    // Verify we have the expected number of log calls
+    expect(logCalls).toHaveLength(4);
+    
+    // First call: Controller hit - should have middleware context
+    expect(logCalls[0]).toMatchObject([
+      {
+        correlationId: expect.any(String),
+        requestMethod: 'GET',
+        requestUrl: '/with-context-test',
+        environment: 'test',
+        traceId: 'trace-with-context-123',
+      },
+      'Controller hit - context initialized by middleware',
+      WithContextTestController.name,
+    ]);
+
+    // Second call: Service method with @WithContext - should have NEW correlationId and decorator context
+    expect(logCalls[1]).toMatchObject([
+      {
+        correlationId: expect.any(String), // This should be different from the first one
+        serviceContext: 'with-context-service',
+        operation: 'process-data',
+        data: { value: 'test-data' },
+      },
+      'Processing data in service with @WithContext',
+      WithContextTestService.name,
+    ]);
+
+    // Third call: Service method completion - should maintain the decorator's context
+    expect(logCalls[2]).toMatchObject([
+      {
+        correlationId: logCalls[1][0].correlationId, // Same as the second call
+        serviceContext: 'with-context-service',
+        operation: 'process-data',
+      },
+      'Data processing completed',
+      WithContextTestService.name,
+    ]);
+
+    // Fourth call: Controller completion - should return to original middleware context
+    expect(logCalls[3]).toMatchObject([
+      {
+        correlationId: logCalls[0][0].correlationId, // Same as the first call
+        requestMethod: 'GET',
+        requestUrl: '/with-context-test',
+        environment: 'test',
+        traceId: 'trace-with-context-123',
+        controllerContext: 'middleware-initialized',
+      },
+      'Controller completed',
+      WithContextTestController.name,
+    ]);
+
+    // Verify that the @WithContext decorator created a different correlationId
+    expect(logCalls[1][0].correlationId).not.toBe(logCalls[0][0].correlationId);
+    expect(logCalls[2][0].correlationId).toBe(logCalls[1][0].correlationId);
+    expect(logCalls[3][0].correlationId).toBe(logCalls[0][0].correlationId);
+  });
+
+  it('should maintain middleware context when NOT using @WithContext decorator', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/without-context-test')
+      .set('X-Trace-ID', 'trace-without-context-123')
+      .expect(200);
+
+    expect(response.body).toEqual({ processed: true, data: { value: 'test-data' } });
+    
+    const logCalls = mockNestJSPinoLogger.log.mock.calls;
+    
+    // Verify we have the expected number of log calls
+    expect(logCalls).toHaveLength(4);
+    
+    // All calls should maintain the same correlationId from middleware
+    const expectedCorrelationId = logCalls[0][0].correlationId;
+    
+    expect(logCalls[0]).toMatchObject([
+      {
+        correlationId: expectedCorrelationId,
+        requestMethod: 'GET',
+        requestUrl: '/without-context-test',
+        environment: 'test',
+        traceId: 'trace-without-context-123',
+      },
+      'Controller hit - for comparison without decorator',
+      WithContextTestController.name,
+    ]);
+
+    expect(logCalls[1]).toMatchObject([
+      {
+        correlationId: expectedCorrelationId, // Same correlationId
+        requestMethod: 'GET',
+        requestUrl: '/without-context-test',
+        environment: 'test',
+        traceId: 'trace-without-context-123',
+        controllerContext: 'middleware-initialized',
+        data: { value: 'test-data' },
+      },
+      'Processing data without @WithContext',
+      WithContextTestService.name,
+    ]);
+
+    expect(logCalls[2]).toMatchObject([
+      {
+        correlationId: expectedCorrelationId, // Same correlationId
+        requestMethod: 'GET',
+        requestUrl: '/without-context-test',
+        environment: 'test',
+        traceId: 'trace-without-context-123',
+        controllerContext: 'middleware-initialized',
+      },
+      'Data processing without decorator completed',
+      WithContextTestService.name,
+    ]);
+
+    expect(logCalls[3]).toMatchObject([
+      {
+        correlationId: expectedCorrelationId, // Same correlationId
+        requestMethod: 'GET',
+        requestUrl: '/without-context-test',
+        environment: 'test',
+        traceId: 'trace-without-context-123',
+        controllerContext: 'middleware-initialized',
+      },
+      'Controller completed',
+      WithContextTestController.name,
+    ]);
+
+    // Verify all calls have the same correlationId (no isolation)
+    logCalls.forEach(call => {
+      expect(call[0].correlationId).toBe(expectedCorrelationId);
+    });
+  });
+
   describe('ContextLogger Platform Compatibility', () => {
     let moduleFixture: TestingModule;
   
@@ -369,7 +563,8 @@ describe('ContextLogger E2E', () => {
             })
           })
         ],
-        controllers: [SimpleTestController],
+        controllers: [SimpleTestController, WithContextTestController],
+        providers: [WithContextTestService]
       }).compile();
     });
   
