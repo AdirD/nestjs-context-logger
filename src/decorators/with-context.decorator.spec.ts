@@ -189,4 +189,181 @@ describe('WithContext Decorator', () => {
       }).toThrow(/Error with context:.*errorTest.*true/);
     });
   });
+
+  describe('Nested Context Behavior', () => {
+    class NestedTestClass {
+      @WithContext({ outerMethod: true, level: 'outer' })
+      outerMethod() {
+        const outerContext = ContextStore.getContext();
+        const innerResult = this.innerMethod();
+        const outerContextAfterInner = ContextStore.getContext();
+        
+        return {
+          outerContext,
+          innerResult,
+          outerContextAfterInner
+        };
+      }
+
+      @WithContext({ innerMethod: true, level: 'inner' })
+      innerMethod() {
+        const innerContext = ContextStore.getContext();
+        return { innerContext };
+      }
+
+      @WithContext({ correlationId: 'custom-outer-id', service: 'OuterService' })
+      outerMethodWithCustomId() {
+        const outerContext = ContextStore.getContext();
+        const innerResult = this.innerMethodWithCustomId();
+        const outerContextAfterInner = ContextStore.getContext();
+        
+        return {
+          outerContext,
+          innerResult,
+          outerContextAfterInner
+        };
+      }
+
+      @WithContext({ correlationId: 'custom-inner-id', service: 'InnerService' })
+      innerMethodWithCustomId() {
+        const innerContext = ContextStore.getContext();
+        return { innerContext };
+      }
+
+      @WithContext({ operation: 'chain-start' })
+      chainedMethod() {
+        const startContext = ContextStore.getContext();
+        
+        // Update context in outer method
+        ContextStore.updateContext({ step: 'before-nested-call' });
+        const updatedContext = ContextStore.getContext();
+        
+        // Call nested method
+        const nestedResult = this.nestedChainedMethod();
+        
+        // Check context after nested call
+        const finalContext = ContextStore.getContext();
+        
+        return {
+          startContext,
+          updatedContext,
+          nestedResult,
+          finalContext
+        };
+      }
+
+      @WithContext({ operation: 'chain-nested' })
+      nestedChainedMethod() {
+        const nestedStartContext = ContextStore.getContext();
+        
+        // Update context in nested method
+        ContextStore.updateContext({ nestedStep: 'processing' });
+        const nestedUpdatedContext = ContextStore.getContext();
+        
+        return {
+          nestedStartContext,
+          nestedUpdatedContext
+        };
+      }
+    }
+
+    let nestedTestClass: NestedTestClass;
+
+    beforeEach(() => {
+      nestedTestClass = new NestedTestClass();
+    });
+
+    it('should create separate contexts for nested WithContext decorators', () => {
+      const result = nestedTestClass.outerMethod();
+
+      // Outer context should have its own correlationId and properties
+      expect(result.outerContext).toHaveProperty('correlationId');
+      expect(result.outerContext).toHaveProperty('outerMethod', true);
+      expect(result.outerContext).toHaveProperty('level', 'outer');
+      expect(result.outerContext).not.toHaveProperty('innerMethod');
+
+      // Inner context should have completely different correlationId and properties
+      expect(result.innerResult.innerContext).toHaveProperty('correlationId');
+      expect(result.innerResult.innerContext).toHaveProperty('innerMethod', true);
+      expect(result.innerResult.innerContext).toHaveProperty('level', 'inner');
+      expect(result.innerResult.innerContext).not.toHaveProperty('outerMethod');
+
+      // CorrelationIds should be different
+      expect(result.outerContext.correlationId).not.toBe(
+        result.innerResult.innerContext.correlationId
+      );
+
+      // Outer context should be restored after inner method completes
+      expect(result.outerContextAfterInner.correlationId).toBe(
+        result.outerContext.correlationId
+      );
+      expect(result.outerContextAfterInner).toEqual(result.outerContext);
+    });
+
+    it('should handle custom correlationIds in nested contexts', () => {
+      const result = nestedTestClass.outerMethodWithCustomId();
+
+      // Outer context should use custom correlationId
+      expect(result.outerContext.correlationId).toBe('custom-outer-id');
+      expect(result.outerContext.service).toBe('OuterService');
+
+      // Inner context should use its own custom correlationId
+      expect(result.innerResult.innerContext.correlationId).toBe('custom-inner-id');
+      expect(result.innerResult.innerContext.service).toBe('InnerService');
+
+      // Outer context should be restored with its custom correlationId
+      expect(result.outerContextAfterInner.correlationId).toBe('custom-outer-id');
+      expect(result.outerContextAfterInner.service).toBe('OuterService');
+    });
+
+    it('should isolate context updates between nested methods', () => {
+      const result = nestedTestClass.chainedMethod();
+
+      // Outer method initial context
+      expect(result.startContext).toHaveProperty('operation', 'chain-start');
+      expect(result.startContext).not.toHaveProperty('step');
+
+      // Outer method updated context
+      expect(result.updatedContext).toHaveProperty('operation', 'chain-start');
+      expect(result.updatedContext).toHaveProperty('step', 'before-nested-call');
+
+      // Nested method should have its own isolated context
+      expect(result.nestedResult.nestedStartContext).toHaveProperty('operation', 'chain-nested');
+      expect(result.nestedResult.nestedStartContext).not.toHaveProperty('step');
+      expect(result.nestedResult.nestedStartContext).not.toHaveProperty('nestedStep');
+
+      // Nested method can update its own context
+      expect(result.nestedResult.nestedUpdatedContext).toHaveProperty('operation', 'chain-nested');
+      expect(result.nestedResult.nestedUpdatedContext).toHaveProperty('nestedStep', 'processing');
+      expect(result.nestedResult.nestedUpdatedContext).not.toHaveProperty('step');
+
+      // Outer context should be restored unchanged after nested call
+      expect(result.finalContext).toHaveProperty('operation', 'chain-start');
+      expect(result.finalContext).toHaveProperty('step', 'before-nested-call');
+      expect(result.finalContext).not.toHaveProperty('nestedStep');
+
+      // CorrelationIds should be different
+      expect(result.finalContext.correlationId).not.toBe(
+        result.nestedResult.nestedStartContext.correlationId
+      );
+    });
+
+    it('should demonstrate context isolation with no interference', () => {
+      // Call method multiple times to ensure no context bleeding
+      const result1 = nestedTestClass.outerMethod();
+      const result2 = nestedTestClass.outerMethod();
+
+      // Each execution should have unique correlationIds
+      expect(result1.outerContext.correlationId).not.toBe(result2.outerContext.correlationId);
+      expect(result1.innerResult.innerContext.correlationId).not.toBe(
+        result2.innerResult.innerContext.correlationId
+      );
+
+      // But contexts should have same structure
+      expect(result1.outerContext.outerMethod).toBe(result2.outerContext.outerMethod);
+      expect(result1.innerResult.innerContext.innerMethod).toBe(
+        result2.innerResult.innerContext.innerMethod
+      );
+    });
+  });
 });
