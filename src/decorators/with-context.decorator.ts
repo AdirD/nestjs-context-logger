@@ -1,5 +1,5 @@
 import { runWithCtx } from '../store/context-store';
-import { v4 as uuidv4 } from 'uuid';
+import { ContextStore } from '../store/context-store';
 
 /**
  * Decorator that initializes context for NestJS handlers.
@@ -10,17 +10,23 @@ import { v4 as uuidv4 } from 'uuid';
  * @WithContext()
  * @MessagePattern('user.created')
  * async handleUserCreated(data: CreateUserDto) {
- *   this.logger.log('Processing user creation'); // Will include correlationId
+ *   this.logger.log('Processing user creation');
  * }
  *
  * @WithContext({ userId: 'user_123' })
  * @Cron('0 0 * * *')
  * async dailyReport() {
- *   this.logger.log('Running daily report'); // Will include correlationId and userId
+ *   this.logger.log('Running daily report');
+ * }
+ *
+ * @WithContext(() => ({ correlationId: uuid(), service: 'UserService' }))
+ * @MessagePattern('user.validate')
+ * async validateUser(data: ValidateUserDto) {
+ *   this.logger.log('Validating user'); // Fresh correlationId each call
  * }
  * ```
  */
-export function WithContext(initialContext?: Record<string, any>) {
+export function WithContext(decoratorContext?: Record<string, any> | (() => Record<string, any>)) {
   return function (
     target: any,
     propertyKey: string,
@@ -29,9 +35,16 @@ export function WithContext(initialContext?: Record<string, any>) {
     const originalMethod = descriptor.value;
 
     descriptor.value = function (...args: any[]) {
+      const currentContext = ContextStore.getContext();
+      
+      // Resolve context - call function if provided, otherwise use static object
+      const resolvedContext = typeof decoratorContext === 'function' 
+        ? decoratorContext() 
+        : decoratorContext || {};
+      
       const context = {
-        correlationId: uuidv4(),
-        ...initialContext,
+        ...currentContext,
+        ...resolvedContext,
       };
 
       return runWithCtx(() => {

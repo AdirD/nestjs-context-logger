@@ -6,6 +6,7 @@ import { WithContext } from '../decorators/with-context.decorator';
 import * as request from 'supertest';
 import { FastifyAdapter } from '@nestjs/platform-fastify';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { v4 as uuid } from 'uuid';
 
 jest.mock('nestjs-pino', () => {
   const mockNestJSPinoLogger = {
@@ -157,12 +158,18 @@ class InfoMethodTestController {
 class WithContextTestService {
   private readonly logger = new ContextLogger(WithContextTestService.name);
 
-  @WithContext({ serviceContext: 'with-context-service', operation: 'process-data' })
+  @WithContext(() => ({ correlationId: 'service-correlation-id', serviceContext: 'with-context-service', operation: 'process-data' }))
   async processData(data: any) {
     this.logger.log('Processing data in service with @WithContext', { data });
     await new Promise(resolve => setTimeout(resolve, 10));
     this.logger.log('Data processing completed');
     return { processed: true, data };
+  }
+
+  @WithContext(() => ({ correlationId: uuid(), serviceContext: 'dynamic-service', operation: 'dynamic-process' }))
+  async processDynamicData(data: any) {
+    this.logger.log('Processing data with dynamic correlation ID', { data });
+    return { processed: true, data, correlationId: 'dynamic' };
   }
 
   // Method without @WithContext for comparison
@@ -197,6 +204,16 @@ class WithContextTestController {
     ContextLogger.updateContext({ controllerContext: 'middleware-initialized' });
     
     const result = await this.withContextService.processDataWithoutDecorator({ value: 'test-data' });
+    
+    this.logger.log('Controller completed');
+    return result;
+  }
+
+  @Get('/dynamic-context-test')
+  async testDynamicContext() {
+    this.logger.log('Controller hit - testing dynamic context');
+    
+    const result = await this.withContextService.processDynamicData({ value: 'dynamic-test-data' });
     
     this.logger.log('Controller completed');
     return result;
@@ -424,10 +441,10 @@ describe('ContextLogger E2E', () => {
       WithContextTestController.name,
     ]);
 
-    // Second call: Service method with @WithContext - should have NEW correlationId and decorator context
+    // Second call: Service method with @WithContext - should have custom correlationId and decorator context
     expect(logCalls[1]).toMatchObject([
       {
-        correlationId: expect.any(String), // This should be different from the first one
+        correlationId: 'service-correlation-id', // This should be the custom correlationId
         serviceContext: 'with-context-service',
         operation: 'process-data',
         data: { value: 'test-data' },
@@ -439,7 +456,7 @@ describe('ContextLogger E2E', () => {
     // Third call: Service method completion - should maintain the decorator's context
     expect(logCalls[2]).toMatchObject([
       {
-        correlationId: logCalls[1][0].correlationId, // Same as the second call
+        correlationId: 'service-correlation-id', // Same as the second call
         serviceContext: 'with-context-service',
         operation: 'process-data',
       },
@@ -539,6 +556,64 @@ describe('ContextLogger E2E', () => {
     logCalls.forEach(call => {
       expect(call[0].correlationId).toBe(expectedCorrelationId);
     });
+  });
+
+  it('should generate dynamic correlation IDs when using function-based @WithContext', async () => {
+    const response = await request(app.getHttpServer())
+      .get('/dynamic-context-test')
+      .expect(200);
+
+    expect(response.body).toEqual({ processed: true, data: { value: 'dynamic-test-data' }, correlationId: 'dynamic' });
+    
+    const logCalls = mockNestJSPinoLogger.log.mock.calls;
+    
+    // Verify we have the expected number of log calls
+    expect(logCalls).toHaveLength(3);
+    
+    // First call: Controller hit - should have middleware context
+    expect(logCalls[0]).toMatchObject([
+      {
+        correlationId: expect.any(String),
+        requestMethod: 'GET',
+        requestUrl: '/dynamic-context-test',
+        environment: 'test',
+      },
+      'Controller hit - testing dynamic context',
+      WithContextTestController.name,
+    ]);
+
+    // Second call: Service method with dynamic @WithContext - should have dynamic correlationId
+    expect(logCalls[1]).toMatchObject([
+      {
+        correlationId: expect.any(String), // This should be a dynamic UUID
+        serviceContext: 'dynamic-service',
+        operation: 'dynamic-process',
+        data: { value: 'dynamic-test-data' },
+      },
+      'Processing data with dynamic correlation ID',
+      WithContextTestService.name,
+    ]);
+
+    // Third call: Controller completion - should return to original middleware context
+    expect(logCalls[2]).toMatchObject([
+      {
+        correlationId: logCalls[0][0].correlationId, // Same as the first call
+        requestMethod: 'GET',
+        requestUrl: '/dynamic-context-test',
+        environment: 'test',
+      },
+      'Controller completed',
+      WithContextTestController.name,
+    ]);
+
+    // Verify that the dynamic @WithContext decorator created a different correlationId
+    expect(logCalls[1][0].correlationId).not.toBe(logCalls[0][0].correlationId);
+    expect(logCalls[2][0].correlationId).toBe(logCalls[0][0].correlationId);
+    
+    // Verify the dynamic correlationId is a valid UUID
+    expect(logCalls[1][0].correlationId).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    );
   });
 
   describe('ContextLogger Platform Compatibility', () => {

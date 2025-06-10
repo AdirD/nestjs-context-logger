@@ -20,9 +20,7 @@ export const ContextStore = {
 };
 
 export const runWithCtx = (fx: (ctx: Record<string, any>) => any, context: Record<string, any> = {}) => {
-  const existingContext = globalStore.getStore() || {};
-  const mergedContext = { ...existingContext, ...context };
-  return globalStore.run(mergedContext, () => {
-    return fx(mergedContext);
+  return globalStore.run(context, () => {
+    return fx(context);
   });
 };
