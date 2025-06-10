@@ -461,8 +461,8 @@ export class NestedService {
 
 **Message Handlers**: Add service identification and correlation tracking
 ```typescript
-@WithContext(() => ({ correlationId: uuid(), handler: 'user.validate' }))
 @MessagePattern('user.validate')
+@WithContext(() => ({ correlationId: uuid(), handler: 'user.validate' }))
 async validateUser(@Payload() data: ValidateUserDto) {
   this.logger.log('Validating user credentials');
 }
@@ -470,12 +470,12 @@ async validateUser(@Payload() data: ValidateUserDto) {
 
 **Cron Jobs**: Track scheduled task execution
 ```typescript
+@Cron('0 2 * * *')
 @WithContext(() => ({ 
   task: 'data-sync',
   executionId: uuid(),
   scheduledAt: new Date().toISOString()
 }))
-@Cron('0 2 * * *')
 async syncUserData() {
   this.logger.log('Starting user data synchronization');
 }
@@ -488,6 +488,28 @@ async processEmailBatch(emails: Email[]) {
   this.logger.log('Processing email batch', { count: emails.length });
 }
 ```
+
+### Decorator Positioning
+
+**⚠️ IMPORTANT**: When using `@WithContext`, it **must be placed closer to the function definition** than other decorators to ensure proper context initialization.
+
+```typescript
+// ✅ Correct - @WithContext closer to function
+@MessagePattern('user.created')
+@WithContext(() => ({ correlationId: uuid() }))
+async handleUserCreated(data: CreateUserDto) {
+  this.logger.log('Processing user creation');
+}
+
+// ❌ Incorrect - @WithContext too far from function
+@WithContext(() => ({ correlationId: uuid() }))
+@MessagePattern('user.created')
+async handleUserCreated(data: CreateUserDto) {
+  this.logger.log('Processing user creation'); // Context may not be available
+}
+```
+
+This applies to all NestJS decorators including `@MessagePattern`, `@EventPattern`, `@Cron`, etc.
 
 ### When to Use @WithContext vs updateContext()
 
@@ -543,6 +565,23 @@ async processEmailBatch(emails: Email[]) {
 
    // Not so good
    logger.info('Item fetched id: 1, time: 2000, source: serviceA');
+   ```
+
+4. **Position @WithContext Correctly**
+   ```typescript
+   // ✅ Good - @WithContext farther from function
+   @MessagePattern('user.created')
+   @WithContext(() => ({ correlationId: uuid() }))
+   async handleUserCreated(data: CreateUserDto) {
+     this.logger.log('Processing user creation');
+   }
+
+   // ❌ Not good - @WithContext too close to function
+   @WithContext(() => ({ correlationId: uuid() }))
+   @MessagePattern('user.created')
+   async handleUserCreated(data: CreateUserDto) {
+     this.logger.log('Processing user creation');
+   }
    ```
 
 # Performance Considerations
