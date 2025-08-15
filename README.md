@@ -592,7 +592,6 @@ It's worth noting that `nestjs-pino` already uses local storage [under the hood]
 Our benchmarks showed a 20-40% increase compared to raw Pino, such that if Pino average is 114ms, then with ALS it's up to 136.8ms. This is a notable overhead, but still significantly faster than Winston or Bunyan. For reference, see Pino's [benchmarks](https://github.com/pinojs/pino/blob/main/docs/benchmarks.md).
 
 While you should consider this overhead for your own application, do remember that the logging is non-blocking, and should not impact service latency, while the benefits of having context in your logs is a game changer.
-You're right. Let me reorganize the FAQ to flow better, starting with potential issues, then explaining the ALS isolation mechanism, and finishing with Pino integration.
 
 # FAQ for nestjs-context-logger
 
