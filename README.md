@@ -212,7 +212,7 @@ export class PaymentService {
   private readonly logger = new ContextLogger(PaymentService.name);
 
   async processPayment(paymentData: PaymentDto) {
-    this.logger.updateContext({ tier: 'premium' });
+    ContextLogger.updateContext({ tier: 'premium' });
     this.logger.info('Processing payment');
     // Output: {
     //   "message": "Processing payment",
@@ -569,14 +569,14 @@ This applies to all NestJS decorators including `@MessagePattern`, `@EventPatter
 
 4. **Position @WithContext Correctly**
    ```typescript
-   // ✅ Good - @WithContext farther from function
+   // ✅ Good - @WithContext closer to function
    @MessagePattern('user.created')
    @WithContext(() => ({ correlationId: uuid() }))
    async handleUserCreated(data: CreateUserDto) {
      this.logger.log('Processing user creation');
    }
 
-   // ❌ Not good - @WithContext too close to function
+   // ❌ Not good - @WithContext further from function
    @WithContext(() => ({ correlationId: uuid() }))
    @MessagePattern('user.created')
    async handleUserCreated(data: CreateUserDto) {
