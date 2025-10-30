@@ -24,9 +24,19 @@ import { ContextStore } from '../store/context-store';
  * async validateUser(data: ValidateUserDto) {
  *   this.logger.log('Validating user'); // Fresh correlationId each call
  * }
+ *
+ * @Process('job-name')
+ * @WithContext((job: Job<JobDataType>) => ({ 
+ *   jobId: job?.id, 
+ *   jobName: job?.name, 
+ *   queueName: job?.queue?.name 
+ * }))
+ * async doBackgroundTask(job: Job<JobDataType>) {
+ *   this.logger.log('Processing background job');
+ * }
  * ```
  */
-export function WithContext(decoratorContext?: Record<string, any> | (() => Record<string, any>)) {
+export function WithContext(decoratorContext?: Record<string, any> | ((...args: any[]) => Record<string, any>)) {
   return function (
     target: any,
     propertyKey: string,
@@ -37,9 +47,9 @@ export function WithContext(decoratorContext?: Record<string, any> | (() => Reco
     descriptor.value = function (...args: any[]) {
       const currentContext = ContextStore.getContext();
       
-      // Resolve context - call function if provided, otherwise use static object
+      // Resolve context - call function if provided (passing method args), otherwise use static object
       const resolvedContext = typeof decoratorContext === 'function' 
-        ? decoratorContext() 
+        ? decoratorContext(...args) 
         : decoratorContext || {};
       
       const context = {
