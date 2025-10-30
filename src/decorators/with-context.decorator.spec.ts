@@ -39,6 +39,15 @@ describe('WithContext Decorator', () => {
       return ContextStore.getContext();
     }
 
+    @WithContext((job: { id: string; name: string; queue?: { name: string } }) => ({
+      jobId: job?.id,
+      jobName: job?.name,
+      queueName: job?.queue?.name,
+    }))
+    methodWithArgumentContext(_job: { id: string; name: string; queue?: { name: string } }) {
+      return ContextStore.getContext();
+    }
+
     @WithContext()
     async asyncMethod() {
       await new Promise((resolve) => {
@@ -165,6 +174,21 @@ describe('WithContext Decorator', () => {
       expect(result.value).toBe('test-value');
       expect(result.context).toHaveProperty('level', 'info');
       expect(result.context).not.toHaveProperty('correlationId');
+    });
+  });
+
+  describe('Function Context with Method Arguments', () => {
+    it('should pass method arguments to context function', () => {
+      const job = {
+        id: 'job-123',
+        name: 'process-data',
+        queue: { name: 'data-queue' },
+      };
+      const result = testClass.methodWithArgumentContext(job);
+
+      expect(result).toHaveProperty('jobId', 'job-123');
+      expect(result).toHaveProperty('jobName', 'process-data');
+      expect(result).toHaveProperty('queueName', 'data-queue');
     });
   });
 
@@ -417,4 +441,5 @@ describe('WithContext Decorator', () => {
       expect(result1.innerResult.innerContext).toEqual(result2.innerResult.innerContext);
     });
   });
+
 });

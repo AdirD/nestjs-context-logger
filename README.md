@@ -403,8 +403,40 @@ export class UserService {
 
 - **Static object**: `@WithContext({ key: 'value' })` - Values are set once when the class is defined
 - **Function**: `@WithContext(() => ({ key: 'value' }))` - Values are computed fresh for each method invocation
+- **Function with method arguments**: `@WithContext((arg1, arg2) => ({ ... }))` - Access method parameters to extract context
 
 Use functions when you need unique values like correlation IDs or timestamps for each method call.
+
+### Using Method Arguments in Context
+
+You can access method arguments in the context function to extract relevant information:
+
+```typescript
+import { Processor, WorkerHost } from '@nestjs/bullmq';
+import { Job } from 'bullmq';
+import { WithContext } from 'nestjs-context-logger';
+
+@Processor('email-queue')
+export class EmailProcessor extends WorkerHost {
+  @WithContext((job: Job) => ({
+    jobId: job.id,
+    jobName: job.name,
+    queueName: job.queueName,
+    emailRecipient: job.data.to,
+  }))
+  async process(job: Job) {
+    // All logs automatically include: jobId, jobName, queueName, emailRecipient
+    this.logger.log('Processing email');
+    await this.sendEmail(job.data);
+    this.logger.log('Email sent successfully');
+  }
+}
+```
+
+This is particularly useful for:
+- **Queue processors** (BullMQ, Bull): Extract job ID, queue name, attempts
+- **Event handlers**: Extract event type, entity ID
+- **Message handlers**: Extract message metadata
 
 ### Context Merging Behavior
 
