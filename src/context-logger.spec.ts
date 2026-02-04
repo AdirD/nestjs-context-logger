@@ -117,6 +117,72 @@ describe('ContextLogger', () => {
         MODULE_NAME
       );
     });
+
+    describe('object as message parameter', () => {
+      it.each(['error', 'fatal'])('should extract message property from object and include object fields in bindings', (method) => {
+        const messageObject = { message: 'Error from object', code: 'ERR_001', details: 'Some details' };
+
+        contextLogger[method](messageObject as any);
+
+        expect(mockLogger[method]).toHaveBeenCalledWith(
+          { message: 'Error from object', code: 'ERR_001', details: 'Some details', ...CONTEXT },
+          'Error from object',
+          MODULE_NAME
+        );
+      });
+
+      it.each(['error', 'fatal'])('should JSON stringify object when no message property exists', (method) => {
+        const messageObject = { code: 'ERR_001', details: 'Some details' };
+
+        contextLogger[method](messageObject as any);
+
+        expect(mockLogger[method]).toHaveBeenCalledWith(
+          { code: 'ERR_001', details: 'Some details', ...CONTEXT },
+          JSON.stringify(messageObject),
+          MODULE_NAME
+        );
+      });
+
+      it.each(['error', 'fatal'])('should handle object message with Error as second parameter', (method) => {
+        const messageObject = { message: 'Error from object', code: 'ERR_001' };
+        const error = new Error('Test error');
+
+        contextLogger[method](messageObject as any, error);
+
+        expect(mockLogger[method]).toHaveBeenCalledWith(
+          { err: error, message: 'Error from object', code: 'ERR_001', ...CONTEXT },
+          'Error from object',
+          MODULE_NAME
+        );
+      });
+
+      it.each(['error', 'fatal'])('should handle object message with bindings as second parameter', (method) => {
+        const messageObject = { message: 'Error from object', code: 'ERR_001' };
+        const bindings = { someBinding: 'value' };
+
+        contextLogger[method](messageObject as any, bindings);
+
+        expect(mockLogger[method]).toHaveBeenCalledWith(
+          { message: 'Error from object', code: 'ERR_001', someBinding: 'value', ...CONTEXT },
+          'Error from object',
+          MODULE_NAME
+        );
+      });
+
+      it.each(['error', 'fatal'])('should handle object message with Error and bindings', (method) => {
+        const messageObject = { message: 'Error from object', code: 'ERR_001' };
+        const error = new Error('Test error');
+        const bindings = { someBinding: 'value' };
+
+        contextLogger[method](messageObject as any, error, bindings);
+
+        expect(mockLogger[method]).toHaveBeenCalledWith(
+          { err: error, message: 'Error from object', code: 'ERR_001', someBinding: 'value', ...CONTEXT },
+          'Error from object',
+          MODULE_NAME
+        );
+      });
+    });
   });
 
   describe('static methods', () => {
