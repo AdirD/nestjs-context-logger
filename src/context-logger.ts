@@ -61,6 +61,16 @@ export class ContextLogger {
     let error: Error | undefined;
     const adaptedBindings: Bindings = {};
 
+    if (typeof message === 'object') {
+      Object.assign(adaptedBindings, message);
+
+      if ((message as object).hasOwnProperty('message')) {
+        message = (message as any).message as string;
+      } else {
+        message = JSON.stringify(message);
+      }
+    }
+
     if (errorOrBindings instanceof Error) {
       error = errorOrBindings;
       if (bindings) {
@@ -82,6 +92,16 @@ export class ContextLogger {
   error(message: string, errorOrBindings?: Error | Bindings, bindings?: Bindings): void {
     let error: Error | undefined;
     const adaptedBindings: Bindings = {};
+
+    if (typeof message === 'object') {
+      Object.assign(adaptedBindings, message);
+
+      if ((message as object).hasOwnProperty('message')) {
+        message = (message as any).message as string;
+      } else {
+        message = JSON.stringify(message);
+      }
+    }
 
     if (errorOrBindings instanceof Error) {
       error = errorOrBindings;
