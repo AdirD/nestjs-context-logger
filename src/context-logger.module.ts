@@ -24,7 +24,7 @@ export class ContextLoggerModule implements NestModule {
     consumer
       .apply(InitContextMiddleware)
       .exclude(...excludePatterns)
-      .forRoutes('*');
+      .forRoutes('{*path}');
   }
 
   private static createPinoConfig(options: ContextLoggerFactoryOptions): ContextLoggerFactoryOptions {
