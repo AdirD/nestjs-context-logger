@@ -4,10 +4,12 @@ import {
   MiddlewareConsumer,
   NestModule,
   Inject,
+  RequestMethod,
 } from '@nestjs/common';
 import { LoggerModule, Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { RequestInterceptor } from './interceptors/request.interceptor';
 import { InitContextMiddleware } from './middlewares/context.middleware';
+import { getMiddlewareCatchAllRoute } from './middlewares/middleware-catch-all.route';
 import { ContextLogger } from './context-logger';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ContextLoggerAsyncOptions, ContextLoggerFactoryOptions } from './interfaces/context-logger.interface';
@@ -24,15 +26,16 @@ export class ContextLoggerModule implements NestModule {
     consumer
       .apply(InitContextMiddleware)
       .exclude(...excludePatterns)
-      .forRoutes('*');
+      .forRoutes(getMiddlewareCatchAllRoute());
   }
 
   private static createPinoConfig(options: ContextLoggerFactoryOptions): ContextLoggerFactoryOptions {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { enrichContext, pinoHttp = {}, ...restOptions } = options;
+    const { enrichContext, pinoHttp = {}, forRoutes, ...restOptions } = options;
     
     return {
       ...restOptions,
+      forRoutes: forRoutes ?? [{ path: getMiddlewareCatchAllRoute(), method: RequestMethod.ALL }],
       pinoHttp: {
         autoLogging: false,
         level: 'info',
