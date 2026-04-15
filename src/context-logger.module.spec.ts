@@ -172,12 +172,13 @@ describe('ContextLoggerModule', () => {
       // Get and execute the factory to verify its output
       const factory = (LoggerModule.forRootAsync as jest.Mock).mock.calls[0][0].useFactory;
       const config = await factory();
-      expect(config).toEqual({
+      expect(config).toMatchObject({
         pinoHttp: {
           level: 'info',
           autoLogging: false,
         }
       });
+      expect(config.forRoutes).toBeDefined();
     });
 
     describe('createPinoConfig', () => {
@@ -190,12 +191,13 @@ describe('ContextLoggerModule', () => {
       it('should return default config when empty options provided', () => {
         const result = createPinoConfig({});
         
-        expect(result).toEqual({
+        expect(result).toMatchObject({
           pinoHttp: {
             autoLogging: false,
             level: 'info'
           }
         });
+        expect(result.forRoutes).toBeDefined();
       });
   
       it('should merge pinoHttp options with defaults', () => {
@@ -205,16 +207,17 @@ describe('ContextLoggerModule', () => {
             customKey: 'value'
           }
         };
-  
+
         const result = createPinoConfig(options);
-  
-        expect(result).toEqual({
+
+        expect(result).toMatchObject({
           pinoHttp: {
             autoLogging: false,  // default preserved
             level: 'debug',      // overridden
             customKey: 'value'   // new value added
           }
         });
+        expect(result.forRoutes).toBeDefined();
       });
   
       it('should allow overriding default pinoHttp values', () => {
@@ -224,15 +227,16 @@ describe('ContextLoggerModule', () => {
             level: 'error'
           }
         };
-  
+
         const result = createPinoConfig(options);
-  
-        expect(result).toEqual({
+
+        expect(result).toMatchObject({
           pinoHttp: {
             autoLogging: true,
             level: 'error'
           }
         });
+        expect(result.forRoutes).toBeDefined();
       });
     });
 

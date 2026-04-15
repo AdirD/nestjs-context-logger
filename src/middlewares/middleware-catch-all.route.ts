@@ -1,7 +1,7 @@
 /**
  * Wildcard path for `MiddlewareConsumer.forRoutes`.
  * Nest 11+ uses path-to-regexp v8: bare `*` can emit LegacyRouteConverter warnings; `{*path}` is the v8 splat.
- * Nest 10 and Fastify’s middie stack do not reliably support `{*path}`.
+ * Nest 10 and Fastify's middie stack do not reliably support `{*path}`.
  */
 export function getMiddlewareCatchAllRoute(): string {
   try {

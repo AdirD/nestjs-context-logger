@@ -4,6 +4,7 @@ import {
   MiddlewareConsumer,
   NestModule,
   Inject,
+  RequestMethod,
 } from '@nestjs/common';
 import { LoggerModule, Logger as NestJSPinoLogger } from 'nestjs-pino';
 import { RequestInterceptor } from './interceptors/request.interceptor';
@@ -30,10 +31,11 @@ export class ContextLoggerModule implements NestModule {
 
   private static createPinoConfig(options: ContextLoggerFactoryOptions): ContextLoggerFactoryOptions {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { enrichContext, pinoHttp = {}, ...restOptions } = options;
+    const { enrichContext, pinoHttp = {}, forRoutes, ...restOptions } = options;
     
     return {
       ...restOptions,
+      forRoutes: forRoutes ?? [{ path: getMiddlewareCatchAllRoute(), method: RequestMethod.ALL }],
       pinoHttp: {
         autoLogging: false,
         level: 'info',
