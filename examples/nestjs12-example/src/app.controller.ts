@@ -9,7 +9,7 @@ export class AppController {
 
   @Get('info')
   getHello(): string {
-    this.logger.log('Handling GET request', { endpoint: '/' });
+    this.logger.log('Handling GET request', { endpoint: '/info' });
     return 'Hello World';
   }
 
